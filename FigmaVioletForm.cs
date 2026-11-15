@@ -245,7 +245,7 @@ namespace BlueStacks4FPSTweaker
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.Black;
-            this.Text = "Bloomex 2.0 - BlueStacks 4 Optimizer";
+            this.Text = "Bloomex v0.2.0 - BlueStacks 4 Optimizer";
             this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
 
@@ -1422,7 +1422,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Version 2.0", fSub, sb, 202, 72);
+                        e.Graphics.DrawString("Version 0.2.0", fSub, sb, 202, 72);
                     }
                 }
             }
@@ -1436,7 +1436,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Version 2.0", fSub, sb, 145, 82);
+                        e.Graphics.DrawString("Version 0.2.0", fSub, sb, 145, 82);
                     }
                 }
             }
@@ -1557,7 +1557,7 @@ namespace BlueStacks4FPSTweaker
             using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fFeatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Bloomex 2.0", fFeatHead, Brushes.White, featTitleArea, sfTitle);
+                e.Graphics.DrawString("Bloomex v0.2.0", fFeatHead, Brushes.White, featTitleArea, sfTitle);
             }
             using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
             using (Font fFeatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
