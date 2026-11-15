@@ -154,7 +154,7 @@ namespace BlueStacks4FPSTweaker
         private bool _isDownloadingUpdate = false;
         private int _updateProgress = 0;
         private Rectangle _rectUpdateBadge = new Rectangle(520, 15, 175, 24);
-        private Rectangle _rectBtnCheckUpdates = new Rectangle(465, 320, 248, 28);
+        private Rectangle _rectBtnCheckUpdates = new Rectangle(470, 314, 248, 30);
         private bool _hovCheckUpdates = false;
         private bool _hovUpdateBadge = false;
 
@@ -171,15 +171,15 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectIconTrash = new Rectangle(50, 120, 50, 48);
         private Rectangle _rectIconSettings = new Rectangle(50, 184, 50, 48);
         private Rectangle _rectIconInfo = new Rectangle(50, 248, 50, 48);
+        private Rectangle _rectBottomLogo = new Rectangle(50, 396, 50, 48);
 
         // Settings Page & Dedicated GPU Controls
         private bool _preferDedicatedGpu = true;
         private string _gpuName = "NVIDIA GeForce RTX 5050/PCIe/SSE2";
-        private Rectangle _rectGpuCheck = new Rectangle(165, 155, 22, 22);
+        private Rectangle _rectGpuCheck = new Rectangle(170, 160, 22, 22);
         private Rectangle _rectGpuToggleCard = new Rectangle(145, 116, 593, 118);
         private Rectangle _rectBtnSaveSettings = new Rectangle(515, 388, 200, 48);
-        private string _settingsStatusText = "Dedicated GPU Preferred (ForceDedicatedGPU=1) • Hardware Accelerated";
-        private bool _hovSettings = false;
+        private string _settingsStatusText = "Preferences synchronized with BlueStacks 4";
         private bool _hovGpuCheck = false;
         private bool _hovSaveSettings = false;
 
@@ -197,11 +197,11 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectDisplay = new Rectangle(605, 266, 125, 54);
         private Rectangle _rectRam = new Rectangle(495, 326, 145, 54);
 
-        // Clean Up Page Controls
-        private Rectangle _rectBtnCleanBs = new Rectangle(163, 184, 252, 32);
-        private Rectangle _rectBtnCleanTemp = new Rectangle(468, 184, 252, 32);
-        private Rectangle _rectBtnCleanRam = new Rectangle(163, 310, 252, 32);
-        private Rectangle _rectBtnCleanDns = new Rectangle(468, 310, 252, 32);
+        // Clean Up Page Controls (20px padding left/right inside 288px cards)
+        private Rectangle _rectBtnCleanBs = new Rectangle(165, 182, 248, 32);
+        private Rectangle _rectBtnCleanTemp = new Rectangle(470, 182, 248, 32);
+        private Rectangle _rectBtnCleanRam = new Rectangle(165, 308, 248, 32);
+        private Rectangle _rectBtnCleanDns = new Rectangle(470, 308, 248, 32);
         private Rectangle _rectBtnCleanAll = new Rectangle(515, 388, 200, 48);
 
         // About Page Controls
@@ -212,7 +212,9 @@ namespace BlueStacks4FPSTweaker
         private bool _hovMin = false;
         private bool _hovHome = false;
         private bool _hovTrash = false;
+        private bool _hovSettings = false;
         private bool _hovInfo = false;
+        private bool _hovBottomLogo = false;
         private bool _hovHelp = false;
         private bool _hovStart = false;
         private bool _hovStop = false;
@@ -246,7 +248,7 @@ namespace BlueStacks4FPSTweaker
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.Black;
-            this.Text = "Bloomex v0.1.0 - BlueStacks 4 Optimizer";
+            this.Text = "Bloomex 2.0 - BlueStacks 4 Optimizer";
             this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
 
@@ -396,6 +398,12 @@ namespace BlueStacks4FPSTweaker
                     return;
                 }
                 if (_rectIconInfo.Contains(e.Location))
+                {
+                    _currentTab = AppTab.About;
+                    Invalidate();
+                    return;
+                }
+                if (_rectBottomLogo.Contains(e.Location))
                 {
                     _currentTab = AppTab.About;
                     Invalidate();
@@ -655,6 +663,9 @@ namespace BlueStacks4FPSTweaker
             bool hInfo = _rectIconInfo.Contains(e.Location);
             if (hInfo != _hovInfo) { _hovInfo = hInfo; anyHovChange = true; }
 
+            bool hBottomLogo = _rectBottomLogo.Contains(e.Location);
+            if (hBottomLogo != _hovBottomLogo) { _hovBottomLogo = hBottomLogo; anyHovChange = true; }
+
             if (_currentTab == AppTab.Dashboard)
             {
                 bool hHelp = _rectHelp.Contains(e.Location);
@@ -718,7 +729,7 @@ namespace BlueStacks4FPSTweaker
             bool hUpdateBadge = (_isUpdateAvailable || _isDownloadingUpdate) && _rectUpdateBadge.Contains(e.Location);
             if (hUpdateBadge != _hovUpdateBadge) { _hovUpdateBadge = hUpdateBadge; anyHovChange = true; }
 
-            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
+            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovSettings || _hovInfo || _hovBottomLogo || _hovUpdateBadge ||
                 (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
                 (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
                 (_currentTab == AppTab.Settings && (_hovGpuCheck || _hovSaveSettings)) ||
@@ -832,7 +843,24 @@ namespace BlueStacks4FPSTweaker
                 }
                 e.Graphics.DrawImage(_imgInfo, 62, 259, 26, 26);
             }
-            if (_imgGauge != null)
+            // 5. Bloomex Logo Badge (Bottom of Left Sidebar, Center X = 75, Center Y = 420)
+            if (_imgLogo != null)
+            {
+                if (_hovBottomLogo)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(80, ColorNeonPurple)), 49f, 394f, 52f, 52f);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), 49f, 394f, 52f, 52f);
+                }
+                e.Graphics.DrawImage(_imgLogo, 51f, 396f, 48f, 48f);
+
+                if (_isUpdateAvailable)
+                {
+                    // Vibrant indicator dot to signal new release
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(50, 240, 130)), 86f, 396f, 12f, 12f);
+                    e.Graphics.DrawEllipse(new Pen(ColorBorderPlum, 1.5f), 86f, 396f, 12f, 12f);
+                }
+            }
+            else if (_imgGauge != null)
             {
                 e.Graphics.DrawImage(_imgGauge, 44, 397, 62, 62);
             }
@@ -1116,21 +1144,21 @@ namespace BlueStacks4FPSTweaker
             // Title & Subtitle
             using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Windows & Emulator Clean Up", fTitle, Brushes.White, 145, 48);
+                e.Graphics.DrawString("System Clean Up", fTitle, Brushes.White, 145, 48);
             }
-            using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+            using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 500))
             {
                 using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                 {
-                    e.Graphics.DrawString("Flush temporary caches, reclaim memory working sets & eliminate lag spikes", fSub, sb, 145, 82);
+                    e.Graphics.DrawString("Optimize memory, remove junk files & reduce latency", fSub, sb, 145, 82);
                 }
             }
 
-            // 4 Clean Action Cards
-            DrawCleanActionCard(e.Graphics, 145, 116, 288, 112, "BlueStacks Logs & Cache", "Delete engine dumps, logs & shader cache", "Flush Emulator Cache", _rectBtnCleanBs, _hovCleanBs);
-            DrawCleanActionCard(e.Graphics, 450, 116, 288, 112, "Windows %TEMP% Files", "Clear user and system temporary junk files", "Clean Windows Temp", _rectBtnCleanTemp, _hovCleanTemp);
-            DrawCleanActionCard(e.Graphics, 145, 242, 288, 112, "Standby RAM & Working Sets", "Reclaim unused physical memory working sets", "Flush Standby RAM", _rectBtnCleanRam, _hovCleanRam);
-            DrawCleanActionCard(e.Graphics, 450, 242, 288, 112, "DNS Resolver Cache", "Flush DNS cache to resolve in-game ping spikes", "Flush DNS Cache", _rectBtnCleanDns, _hovCleanDns);
+            // 4 Clean Action Cards (Concise, zero text overflow, perfect margins)
+            DrawCleanActionCard(e.Graphics, 145, 116, 288, 112, "Emulator Cache", "Cleans engine logs & shaders", "Clean Cache", _rectBtnCleanBs, _hovCleanBs);
+            DrawCleanActionCard(e.Graphics, 450, 116, 288, 112, "Windows Temp", "Cleans temporary junk files", "Clean Temp", _rectBtnCleanTemp, _hovCleanTemp);
+            DrawCleanActionCard(e.Graphics, 145, 242, 288, 112, "Standby RAM", "Reclaims unused memory", "Free RAM", _rectBtnCleanRam, _hovCleanRam);
+            DrawCleanActionCard(e.Graphics, 450, 242, 288, 112, "DNS Cache", "Flushes network resolver", "Flush DNS", _rectBtnCleanDns, _hovCleanDns);
 
             // Bottom Action Banner (145, 370, 593, 86)
             RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
@@ -1147,7 +1175,7 @@ namespace BlueStacks4FPSTweaker
             using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("1-Click Complete System Optimization", fStatHead, Brushes.White, statTitleArea, sfTitle);
+                e.Graphics.DrawString("Quick Optimization", fStatHead, Brushes.White, statTitleArea, sfTitle);
             }
             using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
             using (Font fStatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
@@ -1168,12 +1196,12 @@ namespace BlueStacks4FPSTweaker
                     e.Graphics.FillPath(b, bap);
                 }
             }
-            using (Font fAll = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            using (Font fAll = FontManager.GetInter(14f, FontStyle.Bold, 600))
             {
                 using (SolidBrush b = new SolidBrush(ColorNeonPurple))
                 {
-                    SizeF szAll = e.Graphics.MeasureString("CLEAN ALL NOW", fAll);
-                    e.Graphics.DrawString("CLEAN ALL NOW", fAll, b, _rectBtnCleanAll.X + (_rectBtnCleanAll.Width - szAll.Width) / 2f, _rectBtnCleanAll.Y + (_rectBtnCleanAll.Height - szAll.Height) / 2f);
+                    SizeF szAll = e.Graphics.MeasureString("CLEAN ALL", fAll);
+                    e.Graphics.DrawString("CLEAN ALL", fAll, b, _rectBtnCleanAll.X + (_rectBtnCleanAll.Width - szAll.Width) / 2f, _rectBtnCleanAll.Y + (_rectBtnCleanAll.Height - szAll.Height) / 2f);
                 }
             }
         }
@@ -1193,15 +1221,18 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            using (Font fT = FontManager.GetInter(16f, FontStyle.Bold, 600))
+            using (Font fT = FontManager.GetInter(15.5f, FontStyle.Bold, 600))
             {
-                g.DrawString(title, fT, Brushes.White, x + 18, y + 16);
+                g.DrawString(title, fT, Brushes.White, x + 20, y + 16);
             }
+
+            RectangleF descRect = new RectangleF(x + 20, y + 40, w - 40, 20);
+            using (StringFormat sfD = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fD = FontManager.GetInter(12f, FontStyle.Regular, 400))
             {
-                using (SolidBrush db = new SolidBrush(Color.FromArgb(200, 200, 220)))
+                using (SolidBrush db = new SolidBrush(Color.FromArgb(190, 190, 215)))
                 {
-                    g.DrawString(desc, fD, db, x + 18, y + 40);
+                    g.DrawString(desc, fD, db, descRect, sfD);
                 }
             }
 
@@ -1214,7 +1245,7 @@ namespace BlueStacks4FPSTweaker
                     g.FillPath(bb, bp);
                 }
             }
-            using (Font fB = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            using (Font fB = FontManager.GetInter(12.5f, FontStyle.Bold, 600))
             {
                 SizeF sz = g.MeasureString(btnText, fB);
                 g.DrawString(btnText, fB, Brushes.White, btnRect.X + (btnRect.Width - sz.Width) / 2f, btnRect.Y + (btnRect.Height - sz.Height) / 2f);
@@ -1228,11 +1259,11 @@ namespace BlueStacks4FPSTweaker
             {
                 e.Graphics.DrawString("Engine & GPU Settings", fTitle, Brushes.White, 145, 48);
             }
-            using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+            using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 500))
             {
                 using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                 {
-                    e.Graphics.DrawString("Configure dedicated graphics acceleration, rendering pipelines & runtime preferences", fSub, sb, 145, 82);
+                    e.Graphics.DrawString("Configure dedicated graphics acceleration & rendering preferences", fSub, sb, 145, 82);
                 }
             }
 
@@ -1251,36 +1282,16 @@ namespace BlueStacks4FPSTweaker
             }
 
             // GPU Settings Heading + (?) Info Icon
-            using (Font fHead = FontManager.GetInter(17f, FontStyle.Bold, 600))
+            using (Font fHead = FontManager.GetInter(16.5f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("GPU settings", fHead, Brushes.White, 168, 130);
+                e.Graphics.DrawString("GPU settings", fHead, Brushes.White, 172, 130);
             }
-            e.Graphics.DrawEllipse(new Pen(Color.FromArgb(180, 180, 220), 1.2f), 284, 133, 16, 16);
-            using (Font fQ = FontManager.GetInter(11f, FontStyle.Bold, 600))
+            e.Graphics.DrawEllipse(new Pen(Color.FromArgb(180, 180, 220), 1.2f), 282, 132, 16, 16);
+            using (Font fQ = FontManager.GetInter(10.5f, FontStyle.Bold, 600))
             {
                 using (SolidBrush qb = new SolidBrush(Color.FromArgb(200, 200, 240)))
                 {
-                    e.Graphics.DrawString("?", fQ, qb, 289, 133);
-                }
-            }
-
-            // Active GPU Status Badge on the right
-            RectangleF badgeRect = new RectangleF(535f, 130f, 185f, 26f);
-            using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(badgeRect, 13f))
-            {
-                Color bCol = _preferDedicatedGpu ? Color.FromArgb(30, 80, 50) : Color.FromArgb(60, 40, 70);
-                using (SolidBrush b = new SolidBrush(bCol)) { e.Graphics.FillPath(b, bp); }
-                Color bBorder = _preferDedicatedGpu ? Color.FromArgb(50, 205, 120) : Color.FromArgb(160, 140, 180);
-                using (Pen p = new Pen(bBorder, 1.2f)) { e.Graphics.DrawPath(p, bp); }
-            }
-            using (Font fb = FontManager.GetInter(11.5f, FontStyle.Bold, 600))
-            {
-                string bText = _preferDedicatedGpu ? "● DEDICATED GPU ACTIVE" : "○ DEFAULT GPU MODE";
-                Color textCol = _preferDedicatedGpu ? Color.FromArgb(160, 255, 190) : Color.FromArgb(210, 200, 230);
-                using (SolidBrush sb = new SolidBrush(textCol))
-                {
-                    SizeF szB = e.Graphics.MeasureString(bText, fb);
-                    e.Graphics.DrawString(bText, fb, sb, badgeRect.X + (badgeRect.Width - szB.Width) / 2f, badgeRect.Y + (badgeRect.Height - szB.Height) / 2f);
+                    e.Graphics.DrawString("?", fQ, qb, 287, 133);
                 }
             }
 
@@ -1306,25 +1317,25 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            using (Font fCheckLbl = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            using (Font fCheckLbl = FontManager.GetInter(14.5f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Prefer dedicated computer graphics (NVIDIA only)", fCheckLbl, Brushes.White, 198, 156);
+                e.Graphics.DrawString("Prefer dedicated computer graphics (NVIDIA only)", fCheckLbl, Brushes.White, 204, 161);
             }
 
             // Subtitle: GPU in use: NVIDIA GeForce RTX 5050/PCIe/SSE2
-            using (Font fGpuUse = FontManager.GetInter(13.5f, FontStyle.Regular, 400))
+            using (Font fGpuUse = FontManager.GetInter(13f, FontStyle.Regular, 400))
             {
-                using (SolidBrush gb = new SolidBrush(Color.FromArgb(175, 175, 215)))
+                using (SolidBrush gb = new SolidBrush(Color.FromArgb(170, 170, 210)))
                 {
-                    e.Graphics.DrawString("GPU in use: " + _gpuName, fGpuUse, gb, 168, 190);
+                    e.Graphics.DrawString("GPU in use: " + _gpuName, fGpuUse, gb, 172, 192);
                 }
             }
 
             // Card 2: Graphics Renderer (145, 246, 288, 116)
-            DrawCleanActionCard(e.Graphics, 145, 246, 288, 116, "Graphics Renderer", "DirectX & OpenGL hardware bridge enabled", "GlRenderMode: Native", new Rectangle(165, 318, 248, 30), false);
+            DrawCleanActionCard(e.Graphics, 145, 246, 288, 116, "Graphics Renderer", "DirectX & OpenGL bridge", "DirectX / OpenGL", new Rectangle(165, 318, 248, 30), false);
 
             // Card 3: ASTC Texture Pipeline (450, 246, 288, 116)
-            DrawCleanActionCard(e.Graphics, 450, 246, 288, 116, "ASTC Texture Decoding", "Direct GPU hardware decompression on RTX 5050", "Hardware ASTC: Active", new Rectangle(470, 318, 248, 30), false);
+            DrawCleanActionCard(e.Graphics, 450, 246, 288, 116, "ASTC Textures", "Hardware decompression", "ASTC: Enabled", new Rectangle(470, 318, 248, 30), false);
 
             // Bottom Action Banner (145, 370, 593, 86)
             RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
@@ -1341,7 +1352,7 @@ namespace BlueStacks4FPSTweaker
             using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Graphics Pipeline Optimization", fStatHead, Brushes.White, statTitleArea, sfTitle);
+                e.Graphics.DrawString("Apply Configuration", fStatHead, Brushes.White, statTitleArea, sfTitle);
             }
             using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
             using (Font fStatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
@@ -1365,8 +1376,8 @@ namespace BlueStacks4FPSTweaker
             {
                 using (SolidBrush b = new SolidBrush(ColorNeonPurple))
                 {
-                    SizeF szAll = e.Graphics.MeasureString("APPLY GPU SETTING", fAll);
-                    e.Graphics.DrawString("APPLY GPU SETTING", fAll, b, _rectBtnSaveSettings.X + (_rectBtnSaveSettings.Width - szAll.Width) / 2f, _rectBtnSaveSettings.Y + (_rectBtnSaveSettings.Height - szAll.Height) / 2f);
+                    SizeF szAll = e.Graphics.MeasureString("APPLY", fAll);
+                    e.Graphics.DrawString("APPLY", fAll, b, _rectBtnSaveSettings.X + (_rectBtnSaveSettings.Width - szAll.Width) / 2f, _rectBtnSaveSettings.Y + (_rectBtnSaveSettings.Height - szAll.Height) / 2f);
                 }
             }
         }
@@ -1430,13 +1441,13 @@ namespace BlueStacks4FPSTweaker
                 e.Graphics.DrawImage(_imgLogo, 145, 42, 44, 44);
                 using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
                 {
-                    e.Graphics.DrawString("About Bloomex", fTitle, Brushes.White, 198, 42);
+                    e.Graphics.DrawString("About Bloomex", fTitle, Brushes.White, 202, 42);
                 }
-                using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 500))
+                using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Bloomex v0.1.0 • Real-Time Kernel Synchronizer & Accelerator", fSub, sb, 198, 72);
+                        e.Graphics.DrawString("Version 2.0", fSub, sb, 202, 72);
                     }
                 }
             }
@@ -1450,7 +1461,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Bloomex v0.1.0 • Real-Time Kernel Synchronizer & Gaming Accelerator", fSub, sb, 145, 82);
+                        e.Graphics.DrawString("Version 2.0", fSub, sb, 145, 82);
                     }
                 }
             }
@@ -1469,29 +1480,28 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            using (Font fCardHead = FontManager.GetInter(17f, FontStyle.Bold, 700))
+            using (Font fCardHead = FontManager.GetInter(16.5f, FontStyle.Bold, 700))
             {
-                e.Graphics.DrawString("Emulator Architecture", fCardHead, Brushes.White, 165, 134);
+                e.Graphics.DrawString("System Architecture", fCardHead, Brushes.White, 168, 134);
             }
 
-            using (Font fItemLbl = FontManager.GetInter(13f, FontStyle.Bold, 600))
-            using (Font fItemVal = FontManager.GetInter(13f, FontStyle.Regular, 400))
+            using (Font fItemLbl = FontManager.GetInter(12.5f, FontStyle.Bold, 600))
+            using (Font fItemVal = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
             using (SolidBrush bLight = new SolidBrush(Color.FromArgb(210, 230, 255)))
             {
                 var specs = new[]
                 {
                     new { L = "BlueStacks Version", V = _version },
-                    new { L = "Kernel Engine", V = "Legacy 64-bit Android" },
-                    new { L = "Engine State", V = "Hardware Plus (GlMode=1)" },
-                    new { L = "Graphics Renderer", V = "DirectX / OpenGL Native" },
-                    new { L = "Host Environment", V = Environment.OSVersion.VersionString }
+                    new { L = "Engine Architecture", V = "64-bit Android Engine" },
+                    new { L = "Graphics Renderer", V = "DirectX / OpenGL" },
+                    new { L = "Operating System", V = GetFriendlyOsName() }
                 };
 
                 float yOff = 168f;
                 foreach (var s in specs)
                 {
-                    e.Graphics.DrawString(s.L, fItemLbl, Brushes.White, 165f, yOff);
-                    e.Graphics.DrawString(s.V, fItemVal, bLight, 165f, yOff + 18f);
+                    e.Graphics.DrawString(s.L, fItemLbl, Brushes.White, 168f, yOff);
+                    e.Graphics.DrawString(s.V, fItemVal, bLight, 168f, yOff + 17f);
                     yOff += 36f;
                 }
             }
@@ -1510,21 +1520,21 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            using (Font fCardHead = FontManager.GetInter(17f, FontStyle.Bold, 700))
+            using (Font fCardHead = FontManager.GetInter(16.5f, FontStyle.Bold, 700))
             {
-                e.Graphics.DrawString("Registry Synchronization", fCardHead, Brushes.White, 470, 134);
+                e.Graphics.DrawString("Sync Status", fCardHead, Brushes.White, 470, 134);
             }
 
-            using (Font fItemLbl = FontManager.GetInter(13f, FontStyle.Bold, 600))
-            using (Font fItemVal = FontManager.GetInter(13f, FontStyle.Regular, 400))
+            using (Font fItemLbl = FontManager.GetInter(12.5f, FontStyle.Bold, 600))
+            using (Font fItemVal = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
             using (SolidBrush bGreen = new SolidBrush(Color.FromArgb(180, 240, 200)))
             {
                 var syncItems = new[]
                 {
-                    new { L = "Config FPS Sync", V = "Strict Lock (" + _currentFps + " FPS)" },
-                    new { L = "BootParameters DPI", V = "Synchronized (" + _dpi + " DPI)" },
-                    new { L = "Resolution FrameBuffer", V = _display + " (Synced)" },
-                    new { L = "Memory Allocation", V = _ramText + " (Verified)" }
+                    new { L = "Config FPS Lock", V = "Strict (" + _currentFps + " FPS)" },
+                    new { L = "Display DPI", V = "Synced (" + _dpi + " DPI)" },
+                    new { L = "Resolution", V = _display },
+                    new { L = "Memory", V = _ramText }
                 };
 
                 float yOff = 168f;
@@ -1532,11 +1542,11 @@ namespace BlueStacks4FPSTweaker
                 {
                     e.Graphics.DrawString(s.L, fItemLbl, Brushes.White, 470f, yOff);
                     e.Graphics.DrawString(s.V, fItemVal, bGreen, 470f, yOff + 17f);
-                    yOff += 34f;
+                    yOff += 36f;
                 }
             }
 
-            // Check for Updates Button on Card 2
+            // Check for Updates Button on Card 2 (470, 314, 248, 30)
             RectangleF updBtnRect = new RectangleF(_rectBtnCheckUpdates.X, _rectBtnCheckUpdates.Y, _rectBtnCheckUpdates.Width, _rectBtnCheckUpdates.Height);
             using (GraphicsPath ubp = StudioGraphics.CreateRoundedPath(updBtnRect, 14f))
             {
@@ -1550,7 +1560,7 @@ namespace BlueStacks4FPSTweaker
                     e.Graphics.DrawPath(p, ubp);
                 }
             }
-            string updBtnText = _isUpdateAvailable ? ("INSTALL UPDATE " + _latestVersion) : (_isDownloadingUpdate ? ("DOWNLOADING " + _updateProgress + "%") : "CHECK FOR UPDATES");
+            string updBtnText = _isUpdateAvailable ? ("UPDATE TO " + _latestVersion) : (_isDownloadingUpdate ? ("DOWNLOADING " + _updateProgress + "%") : "CHECK FOR UPDATES");
             using (Font fUpdBtn = FontManager.GetInter(11.5f, FontStyle.Bold, 600))
             {
                 SizeF szUpd = e.Graphics.MeasureString(updBtnText, fUpdBtn);
@@ -1572,14 +1582,14 @@ namespace BlueStacks4FPSTweaker
             using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fFeatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Ultra-Smooth FPS Engineering", fFeatHead, Brushes.White, featTitleArea, sfTitle);
+                e.Graphics.DrawString("Bloomex 2.0", fFeatHead, Brushes.White, featTitleArea, sfTitle);
             }
             using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
             using (Font fFeatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
             {
                 using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
                 {
-                    e.Graphics.DrawString("Eliminates emulator micro-stutters and stabilizes frame rates.", fFeatSub, sb, featDescArea, sfDesc);
+                    e.Graphics.DrawString("Optimized for high-FPS BlueStacks gameplay.", fFeatSub, sb, featDescArea, sfDesc);
                 }
             }
 
@@ -1596,9 +1606,25 @@ namespace BlueStacks4FPSTweaker
             {
                 using (SolidBrush b = new SolidBrush(ColorNeonPurple))
                 {
-                    SizeF szHome = e.Graphics.MeasureString("BACK TO DASHBOARD", fHomeBtn);
-                    e.Graphics.DrawString("BACK TO DASHBOARD", fHomeBtn, b, _rectBtnBackDash.X + (_rectBtnBackDash.Width - szHome.Width) / 2f, _rectBtnBackDash.Y + (_rectBtnBackDash.Height - szHome.Height) / 2f);
+                    SizeF szHome = e.Graphics.MeasureString("DASHBOARD", fHomeBtn);
+                    e.Graphics.DrawString("DASHBOARD", fHomeBtn, b, _rectBtnBackDash.X + (_rectBtnBackDash.Width - szHome.Width) / 2f, _rectBtnBackDash.Y + (_rectBtnBackDash.Height - szHome.Height) / 2f);
                 }
+            }
+        }
+
+        private string GetFriendlyOsName()
+        {
+            try
+            {
+                if (Environment.OSVersion.Version.Major == 10 && Environment.OSVersion.Version.Build >= 22000)
+                    return "Windows 11 64-bit";
+                if (Environment.OSVersion.Version.Major == 10)
+                    return "Windows 10 64-bit";
+                return "Windows 64-bit";
+            }
+            catch
+            {
+                return "Windows 64-bit";
             }
         }
 
