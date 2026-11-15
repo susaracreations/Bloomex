@@ -14,6 +14,7 @@ namespace BlueStacks4FPSTweaker
     {
         Dashboard,
         CleanUp,
+        Settings,
         About
     }
 
@@ -166,9 +167,21 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectMin = new Rectangle(710, 14, 34, 26);
         
         // Left Bar Action Icons (Tab Navigation)
-        private Rectangle _rectIconHome = new Rectangle(50, 56, 50, 46);
+        private Rectangle _rectIconHome = new Rectangle(50, 56, 50, 48);
         private Rectangle _rectIconTrash = new Rectangle(50, 120, 50, 48);
-        private Rectangle _rectIconInfo = new Rectangle(50, 180, 50, 46);
+        private Rectangle _rectIconSettings = new Rectangle(50, 184, 50, 48);
+        private Rectangle _rectIconInfo = new Rectangle(50, 248, 50, 48);
+
+        // Settings Page & Dedicated GPU Controls
+        private bool _preferDedicatedGpu = true;
+        private string _gpuName = "NVIDIA GeForce RTX 5050/PCIe/SSE2";
+        private Rectangle _rectGpuCheck = new Rectangle(165, 155, 22, 22);
+        private Rectangle _rectGpuToggleCard = new Rectangle(145, 116, 593, 118);
+        private Rectangle _rectBtnSaveSettings = new Rectangle(515, 388, 200, 48);
+        private string _settingsStatusText = "Dedicated GPU Preferred (ForceDedicatedGPU=1) • Hardware Accelerated";
+        private bool _hovSettings = false;
+        private bool _hovGpuCheck = false;
+        private bool _hovSaveSettings = false;
 
         // Dashboard Interactive Controls (Centered Middle Column: midX=130, width=302)
         private Rectangle _rectHelp = new Rectangle(145, 370, 70, 30);
@@ -376,6 +389,12 @@ namespace BlueStacks4FPSTweaker
                     Invalidate();
                     return;
                 }
+                if (_rectIconSettings.Contains(e.Location))
+                {
+                    _currentTab = AppTab.Settings;
+                    Invalidate();
+                    return;
+                }
                 if (_rectIconInfo.Contains(e.Location))
                 {
                     _currentTab = AppTab.About;
@@ -501,7 +520,26 @@ namespace BlueStacks4FPSTweaker
                         return;
                     }
                 }
-                // TAB 3: ABOUT ACTIONS
+                // TAB 3: SETTINGS ACTIONS
+                else if (_currentTab == AppTab.Settings)
+                {
+                    if (_rectGpuCheck.Contains(e.Location) || _rectGpuToggleCard.Contains(e.Location))
+                    {
+                        _preferDedicatedGpu = !_preferDedicatedGpu;
+                        _settingsStatusText = _preferDedicatedGpu 
+                            ? "Dedicated GPU Preferred (ForceDedicatedGPU=1) • Click Apply to save" 
+                            : "Integrated / Default GPU (ForceDedicatedGPU=0) • Click Apply to save";
+                        Invalidate();
+                        return;
+                    }
+
+                    if (_rectBtnSaveSettings.Contains(e.Location))
+                    {
+                        ApplyGpuSettings();
+                        return;
+                    }
+                }
+                // TAB 4: ABOUT ACTIONS
                 else if (_currentTab == AppTab.About)
                 {
                     if (_rectBtnBackDash.Contains(e.Location))
@@ -611,6 +649,9 @@ namespace BlueStacks4FPSTweaker
             bool hTrash = _rectIconTrash.Contains(e.Location);
             if (hTrash != _hovTrash) { _hovTrash = hTrash; anyHovChange = true; }
 
+            bool hSettings = _rectIconSettings.Contains(e.Location);
+            if (hSettings != _hovSettings) { _hovSettings = hSettings; anyHovChange = true; }
+
             bool hInfo = _rectIconInfo.Contains(e.Location);
             if (hInfo != _hovInfo) { _hovInfo = hInfo; anyHovChange = true; }
 
@@ -657,6 +698,14 @@ namespace BlueStacks4FPSTweaker
                 bool hCleanAll = _rectBtnCleanAll.Contains(e.Location);
                 if (hCleanAll != _hovCleanAll) { _hovCleanAll = hCleanAll; anyHovChange = true; }
             }
+            else if (_currentTab == AppTab.Settings)
+            {
+                bool hGpu = _rectGpuCheck.Contains(e.Location) || _rectGpuToggleCard.Contains(e.Location);
+                if (hGpu != _hovGpuCheck) { _hovGpuCheck = hGpu; anyHovChange = true; }
+
+                bool hSave = _rectBtnSaveSettings.Contains(e.Location);
+                if (hSave != _hovSaveSettings) { _hovSaveSettings = hSave; anyHovChange = true; }
+            }
             else if (_currentTab == AppTab.About)
             {
                 bool hBackDash = _rectBtnBackDash.Contains(e.Location);
@@ -669,9 +718,10 @@ namespace BlueStacks4FPSTweaker
             bool hUpdateBadge = (_isUpdateAvailable || _isDownloadingUpdate) && _rectUpdateBadge.Contains(e.Location);
             if (hUpdateBadge != _hovUpdateBadge) { _hovUpdateBadge = hUpdateBadge; anyHovChange = true; }
 
-            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovInfo || _hovUpdateBadge ||
+            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
                 (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
                 (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
+                (_currentTab == AppTab.Settings && (_hovGpuCheck || _hovSaveSettings)) ||
                 (_currentTab == AppTab.About && (_hovBackDash || _hovCheckUpdates));
 
             this.Cursor = isClickable ? Cursors.Hand : Cursors.Default;
@@ -722,45 +772,65 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            // Draw Left Bar Icons with Active Ring Highlight
+            // Draw Left Bar Icons with 100% PERFECT CIRCULAR Active Rings (48x48)
+            float circleDiam = 48f;
+            float circleX = 51f;
+
+            // 1. Home / Dashboard (Center Y = 80)
             if (_imgHome != null)
             {
                 if (_currentTab == AppTab.Dashboard)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), 47, 54, 56, 52);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.5f), 47, 54, 56, 52);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 56f, circleDiam, circleDiam);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 56f, circleDiam, circleDiam);
                 }
                 else if (_hovHome)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 55, 60, 40, 40);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 58f, 44f, 44f);
                 }
-                e.Graphics.DrawImage(_imgHome, 62, 67, 27, 26);
+                e.Graphics.DrawImage(_imgHome, 62, 67, 26, 26);
             }
+
+            // 2. Clean Up (Center Y = 144)
             if (_imgTrash != null)
             {
                 if (_currentTab == AppTab.CleanUp)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), 47, 118, 56, 52);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.5f), 47, 118, 56, 52);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 120f, circleDiam, circleDiam);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 120f, circleDiam, circleDiam);
                 }
                 else if (_hovTrash)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 55, 122, 40, 42);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 122f, 44f, 44f);
                 }
-                e.Graphics.DrawImage(_imgTrash, 62, 130, 26, 29);
+                e.Graphics.DrawImage(_imgTrash, 62, 131, 26, 26);
             }
+
+            // 3. Settings (Center Y = 208)
+            if (_currentTab == AppTab.Settings)
+            {
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 184f, circleDiam, circleDiam);
+                e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 184f, circleDiam, circleDiam);
+            }
+            else if (_hovSettings)
+            {
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 186f, 44f, 44f);
+            }
+            DrawGearIcon(e.Graphics, 75f, 208f, 13f, Color.White);
+
+            // 4. About (Center Y = 272)
             if (_imgInfo != null)
             {
                 if (_currentTab == AppTab.About)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), 47, 178, 56, 52);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.5f), 47, 178, 56, 52);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 248f, circleDiam, circleDiam);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 248f, circleDiam, circleDiam);
                 }
                 else if (_hovInfo)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 55, 184, 40, 40);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 250f, 44f, 44f);
                 }
-                e.Graphics.DrawImage(_imgInfo, 62, 191, 26, 26);
+                e.Graphics.DrawImage(_imgInfo, 62, 259, 26, 26);
             }
             if (_imgGauge != null)
             {
@@ -830,6 +900,10 @@ namespace BlueStacks4FPSTweaker
             else if (_currentTab == AppTab.CleanUp)
             {
                 PaintCleanUpTab(e);
+            }
+            else if (_currentTab == AppTab.Settings)
+            {
+                PaintSettingsTab(e);
             }
             else if (_currentTab == AppTab.About)
             {
@@ -1144,6 +1218,207 @@ namespace BlueStacks4FPSTweaker
             {
                 SizeF sz = g.MeasureString(btnText, fB);
                 g.DrawString(btnText, fB, Brushes.White, btnRect.X + (btnRect.Width - sz.Width) / 2f, btnRect.Y + (btnRect.Height - sz.Height) / 2f);
+            }
+        }
+
+        private void PaintSettingsTab(PaintEventArgs e)
+        {
+            // Title & Subtitle
+            using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Engine & GPU Settings", fTitle, Brushes.White, 145, 48);
+            }
+            using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
+                {
+                    e.Graphics.DrawString("Configure dedicated graphics acceleration, rendering pipelines & runtime preferences", fSub, sb, 145, 82);
+                }
+            }
+
+            // Card 1: Dedicated GPU Settings (145, 116, 593, 118)
+            RectangleF gpuCardRect = new RectangleF(145f, 116f, 593f, 118f);
+            using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gpuCardRect, 24f))
+            {
+                using (LinearGradientBrush cb = new LinearGradientBrush(gpuCardRect, Color.FromArgb(28, 6, 48), ColorBorderPlum, 135f))
+                {
+                    e.Graphics.FillPath(cb, gcp);
+                }
+                using (Pen p = new Pen(_hovGpuCheck ? ColorNeonPurple : ColorBorderPlum, 1.8f))
+                {
+                    e.Graphics.DrawPath(p, gcp);
+                }
+            }
+
+            // GPU Settings Heading + (?) Info Icon
+            using (Font fHead = FontManager.GetInter(17f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("GPU settings", fHead, Brushes.White, 168, 130);
+            }
+            e.Graphics.DrawEllipse(new Pen(Color.FromArgb(180, 180, 220), 1.2f), 284, 133, 16, 16);
+            using (Font fQ = FontManager.GetInter(11f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush qb = new SolidBrush(Color.FromArgb(200, 200, 240)))
+                {
+                    e.Graphics.DrawString("?", fQ, qb, 289, 133);
+                }
+            }
+
+            // Active GPU Status Badge on the right
+            RectangleF badgeRect = new RectangleF(535f, 130f, 185f, 26f);
+            using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(badgeRect, 13f))
+            {
+                Color bCol = _preferDedicatedGpu ? Color.FromArgb(30, 80, 50) : Color.FromArgb(60, 40, 70);
+                using (SolidBrush b = new SolidBrush(bCol)) { e.Graphics.FillPath(b, bp); }
+                Color bBorder = _preferDedicatedGpu ? Color.FromArgb(50, 205, 120) : Color.FromArgb(160, 140, 180);
+                using (Pen p = new Pen(bBorder, 1.2f)) { e.Graphics.DrawPath(p, bp); }
+            }
+            using (Font fb = FontManager.GetInter(11.5f, FontStyle.Bold, 600))
+            {
+                string bText = _preferDedicatedGpu ? "● DEDICATED GPU ACTIVE" : "○ DEFAULT GPU MODE";
+                Color textCol = _preferDedicatedGpu ? Color.FromArgb(160, 255, 190) : Color.FromArgb(210, 200, 230);
+                using (SolidBrush sb = new SolidBrush(textCol))
+                {
+                    SizeF szB = e.Graphics.MeasureString(bText, fb);
+                    e.Graphics.DrawString(bText, fb, sb, badgeRect.X + (badgeRect.Width - szB.Width) / 2f, badgeRect.Y + (badgeRect.Height - szB.Height) / 2f);
+                }
+            }
+
+            // Interactive Checkbox [✓] Prefer dedicated computer graphics (NVIDIA only)
+            RectangleF chkRect = new RectangleF(_rectGpuCheck.X, _rectGpuCheck.Y, _rectGpuCheck.Width, _rectGpuCheck.Height);
+            using (GraphicsPath chkPath = StudioGraphics.CreateRoundedPath(chkRect, 5f))
+            {
+                Color chkFill = _preferDedicatedGpu ? ColorNeonPurple : Color.FromArgb(40, 20, 60);
+                using (SolidBrush b = new SolidBrush(chkFill)) { e.Graphics.FillPath(b, chkPath); }
+                using (Pen p = new Pen(_preferDedicatedGpu ? Color.White : ColorNeonPurple, 1.5f)) { e.Graphics.DrawPath(p, chkPath); }
+            }
+            if (_preferDedicatedGpu)
+            {
+                PointF[] checkPts = new PointF[]
+                {
+                    new PointF(_rectGpuCheck.X + 4.5f, _rectGpuCheck.Y + 11f),
+                    new PointF(_rectGpuCheck.X + 9f, _rectGpuCheck.Y + 16f),
+                    new PointF(_rectGpuCheck.X + 17f, _rectGpuCheck.Y + 6.5f)
+                };
+                using (Pen pCheck = new Pen(Color.White, 2.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                {
+                    e.Graphics.DrawLines(pCheck, checkPts);
+                }
+            }
+
+            using (Font fCheckLbl = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Prefer dedicated computer graphics (NVIDIA only)", fCheckLbl, Brushes.White, 198, 156);
+            }
+
+            // Subtitle: GPU in use: NVIDIA GeForce RTX 5050/PCIe/SSE2
+            using (Font fGpuUse = FontManager.GetInter(13.5f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush gb = new SolidBrush(Color.FromArgb(175, 175, 215)))
+                {
+                    e.Graphics.DrawString("GPU in use: " + _gpuName, fGpuUse, gb, 168, 190);
+                }
+            }
+
+            // Card 2: Graphics Renderer (145, 246, 288, 116)
+            DrawCleanActionCard(e.Graphics, 145, 246, 288, 116, "Graphics Renderer", "DirectX & OpenGL hardware bridge enabled", "GlRenderMode: Native", new Rectangle(165, 318, 248, 30), false);
+
+            // Card 3: ASTC Texture Pipeline (450, 246, 288, 116)
+            DrawCleanActionCard(e.Graphics, 450, 246, 288, 116, "ASTC Texture Decoding", "Direct GPU hardware decompression on RTX 5050", "Hardware ASTC: Active", new Rectangle(470, 318, 248, 30), false);
+
+            // Bottom Action Banner (145, 370, 593, 86)
+            RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 28f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
+                {
+                    e.Graphics.FillPath(lgb, botPath);
+                }
+            }
+
+            RectangleF statTitleArea = new RectangleF(170f, 384f, 335f, 24f);
+            RectangleF statDescArea = new RectangleF(170f, 410f, 335f, 38f);
+            using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
+            using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Graphics Pipeline Optimization", fStatHead, Brushes.White, statTitleArea, sfTitle);
+            }
+            using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
+            using (Font fStatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
+                {
+                    e.Graphics.DrawString(_settingsStatusText, fStatSub, sb, statDescArea, sfDesc);
+                }
+            }
+
+            // Save Settings Button
+            RectangleF btnSaveRect = new RectangleF(_rectBtnSaveSettings.X, _rectBtnSaveSettings.Y, _rectBtnSaveSettings.Width, _rectBtnSaveSettings.Height);
+            using (GraphicsPath bap = StudioGraphics.CreateRoundedPath(btnSaveRect, 24f))
+            {
+                using (SolidBrush b = new SolidBrush(_hovSaveSettings ? Color.White : ColorLightGray))
+                {
+                    e.Graphics.FillPath(b, bap);
+                }
+            }
+            using (Font fAll = FontManager.GetInter(14f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush b = new SolidBrush(ColorNeonPurple))
+                {
+                    SizeF szAll = e.Graphics.MeasureString("APPLY GPU SETTING", fAll);
+                    e.Graphics.DrawString("APPLY GPU SETTING", fAll, b, _rectBtnSaveSettings.X + (_rectBtnSaveSettings.Width - szAll.Width) / 2f, _rectBtnSaveSettings.Y + (_rectBtnSaveSettings.Height - szAll.Height) / 2f);
+                }
+            }
+        }
+
+        private void ApplyGpuSettings()
+        {
+            string err;
+            bool ok = BlueStacksRegistry.SetDedicatedGPU(_preferDedicatedGpu, out err);
+            if (ok)
+            {
+                _settingsStatusText = "Dedicated GPU setting saved (" + (_preferDedicatedGpu ? "ForceDedicatedGPU=1" : "ForceDedicatedGPU=0") + ")!";
+                Invalidate();
+                string statusMsg = _preferDedicatedGpu ? "Prefer Dedicated Computer Graphics: ENABLED\n(NVIDIA GeForce RTX 5050 Active)" : "Prefer Dedicated Computer Graphics: DISABLED";
+                MessageBox.Show("GPU Setting Successfully Applied to Registry!\n\n• " + statusMsg + "\n• Registry: HKLM\\SOFTWARE\\BlueStacks\\Config\\ForceDedicatedGPU = " + (_preferDedicatedGpu ? "1" : "0") + "\n\nRestart BlueStacks 4 to initialize on the dedicated GPU.", "GPU Setting Applied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Failed to save GPU setting: " + err, "Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void DrawGearIcon(Graphics g, float cx, float cy, float r, Color color)
+        {
+            using (GraphicsPath gp = new GraphicsPath())
+            {
+                int teeth = 6;
+                float outerR = r;
+                float innerR = r * 0.70f;
+                float holeR = r * 0.35f;
+
+                PointF[] pts = new PointF[teeth * 4];
+                int idx = 0;
+                for (int i = 0; i < teeth; i++)
+                {
+                    double baseDeg = i * (360.0 / teeth);
+                    double a1 = (baseDeg - 13.0) * Math.PI / 180.0;
+                    double a2 = (baseDeg - 7.0) * Math.PI / 180.0;
+                    double a3 = (baseDeg + 7.0) * Math.PI / 180.0;
+                    double a4 = (baseDeg + 13.0) * Math.PI / 180.0;
+
+                    pts[idx++] = new PointF((float)(cx + innerR * Math.Cos(a1)), (float)(cy + innerR * Math.Sin(a1)));
+                    pts[idx++] = new PointF((float)(cx + outerR * Math.Cos(a2)), (float)(cy + outerR * Math.Sin(a2)));
+                    pts[idx++] = new PointF((float)(cx + outerR * Math.Cos(a3)), (float)(cy + outerR * Math.Sin(a3)));
+                    pts[idx++] = new PointF((float)(cx + innerR * Math.Cos(a4)), (float)(cy + innerR * Math.Sin(a4)));
+                }
+                gp.AddPolygon(pts);
+                gp.AddEllipse(cx - holeR, cy - holeR, holeR * 2f, holeR * 2f);
+
+                using (SolidBrush b = new SolidBrush(color))
+                {
+                    g.FillPath(b, gp);
+                }
             }
         }
 
@@ -1723,6 +1998,11 @@ namespace BlueStacks4FPSTweaker
                     }
                 }
                 if (!string.IsNullOrEmpty(cfg.Version)) _version = cfg.Version;
+                _preferDedicatedGpu = cfg.ForceDedicatedGPU;
+                if (!string.IsNullOrEmpty(cfg.AvailableGPUDetails))
+                {
+                    _gpuName = cfg.AvailableGPUDetails;
+                }
 
                 Invalidate();
             }

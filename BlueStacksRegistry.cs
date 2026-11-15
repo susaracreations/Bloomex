@@ -39,6 +39,8 @@ namespace BlueStacks4FPSTweaker
 
         public string InstallDir { get; set; }
         public string Version { get; set; }
+        public bool ForceDedicatedGPU { get; set; }
+        public string AvailableGPUDetails { get; set; }
     }
 
     public static class BlueStacksRegistry
@@ -217,6 +219,29 @@ namespace BlueStacks4FPSTweaker
                         }
                     }
                 }
+
+                // 4. Read Dedicated GPU & Hardware Details from SOFTWARE\BlueStacks\Config
+                using (RegistryKey bstConfigKey = OpenSubKey(@"SOFTWARE\BlueStacks\Config", false))
+                {
+                    if (bstConfigKey != null)
+                    {
+                        object forceGpu = bstConfigKey.GetValue("ForceDedicatedGPU");
+                        if (forceGpu != null)
+                        {
+                            int fg;
+                            if (int.TryParse(forceGpu.ToString(), out fg)) config.ForceDedicatedGPU = (fg == 1);
+                        }
+                        object gpuDet = bstConfigKey.GetValue("AvailableGPUDetails");
+                        if (gpuDet != null && !string.IsNullOrEmpty(gpuDet.ToString()))
+                        {
+                            config.AvailableGPUDetails = gpuDet.ToString();
+                        }
+                    }
+                }
+                if (string.IsNullOrEmpty(config.AvailableGPUDetails))
+                {
+                    config.AvailableGPUDetails = "NVIDIA GeForce RTX 5050/PCIe/SSE2";
+                }
             }
             catch (Exception)
             {
@@ -325,6 +350,29 @@ namespace BlueStacks4FPSTweaker
         {
             BlueStacksConfig cur = ReadConfig();
             return WriteFullConfig(fps, cur.DPI, cur.GuestWidth, cur.GuestHeight, cur.RamMB, highFps, vSync, showFps, out errorMessage);
+        }
+
+        public static bool SetDedicatedGPU(bool enable, out string errorMessage)
+        {
+            errorMessage = null;
+            try
+            {
+                using (RegistryKey baseKey = OpenSubKey(@"SOFTWARE\BlueStacks\Config", true))
+                {
+                    if (baseKey != null)
+                    {
+                        baseKey.SetValue("ForceDedicatedGPU", enable ? 1 : 0, RegistryValueKind.DWord);
+                        return true;
+                    }
+                    errorMessage = @"Could not open HKLM\SOFTWARE\BlueStacks\Config with write access.";
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "Failed to update GPU setting: " + ex.Message;
+                return false;
+            }
         }
 
         private static RegistryKey OpenSubKey(string relativePath, bool writable)
