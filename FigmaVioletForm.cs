@@ -143,6 +143,19 @@ namespace BlueStacks4FPSTweaker
         private string _version = "4.240.30.1002";
         private string _installDir;
         private bool _userModifiedSettings = false;
+        private string _userName = Environment.UserName;
+
+        // Auto-Updater fields
+        private string _updateStatus = "Checking for updates...";
+        private bool _isUpdateAvailable = false;
+        private string _latestVersion = AutoUpdater.CURRENT_VERSION;
+        private string _updateDownloadUrl = string.Empty;
+        private bool _isDownloadingUpdate = false;
+        private int _updateProgress = 0;
+        private Rectangle _rectUpdateBadge = new Rectangle(520, 15, 175, 24);
+        private Rectangle _rectBtnCheckUpdates = new Rectangle(465, 320, 248, 28);
+        private bool _hovCheckUpdates = false;
+        private bool _hovUpdateBadge = false;
 
         // Clean Up Status
         private string _cleanStatusText = "System Status: Ready to optimize memory & flush caches";
@@ -157,29 +170,29 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectIconTrash = new Rectangle(50, 120, 50, 48);
         private Rectangle _rectIconInfo = new Rectangle(50, 180, 50, 46);
 
-        // Dashboard Interactive Controls
-        private Rectangle _rectHelp = new Rectangle(160, 368, 80, 30);
-        private Rectangle _rectStart = new Rectangle(161, 412, 128, 35);
-        private Rectangle _rectStop = new Rectangle(301, 370, 128, 35);
-        private Rectangle _rectRestart = new Rectangle(301, 412, 128, 35);
+        // Dashboard Interactive Controls (Centered Middle Column: midX=130, width=302)
+        private Rectangle _rectHelp = new Rectangle(145, 370, 70, 30);
+        private Rectangle _rectStart = new Rectangle(146, 412, 128, 35);
+        private Rectangle _rectStop = new Rectangle(286, 370, 128, 35);
+        private Rectangle _rectRestart = new Rectangle(286, 412, 128, 35);
         private Rectangle _rectApply = new Rectangle(510, 390, 202, 31);
         private Rectangle _rectPill60 = new Rectangle(484, 198, 49, 19);
         private Rectangle _rectPill90 = new Rectangle(544, 198, 49, 19);
         private Rectangle _rectPill120 = new Rectangle(604, 198, 49, 19);
         private Rectangle _rectPill240 = new Rectangle(664, 198, 49, 19);
-        private Rectangle _rectDpi = new Rectangle(495, 268, 90, 54);
-        private Rectangle _rectDisplay = new Rectangle(605, 268, 120, 54);
-        private Rectangle _rectRam = new Rectangle(495, 326, 140, 54);
+        private Rectangle _rectDpi = new Rectangle(495, 266, 100, 54);
+        private Rectangle _rectDisplay = new Rectangle(605, 266, 125, 54);
+        private Rectangle _rectRam = new Rectangle(495, 326, 145, 54);
 
         // Clean Up Page Controls
         private Rectangle _rectBtnCleanBs = new Rectangle(163, 184, 252, 32);
         private Rectangle _rectBtnCleanTemp = new Rectangle(468, 184, 252, 32);
         private Rectangle _rectBtnCleanRam = new Rectangle(163, 310, 252, 32);
         private Rectangle _rectBtnCleanDns = new Rectangle(468, 310, 252, 32);
-        private Rectangle _rectBtnCleanAll = new Rectangle(510, 388, 206, 48);
+        private Rectangle _rectBtnCleanAll = new Rectangle(515, 388, 200, 48);
 
         // About Page Controls
-        private Rectangle _rectBtnBackDash = new Rectangle(530, 388, 186, 48);
+        private Rectangle _rectBtnBackDash = new Rectangle(520, 388, 195, 48);
 
         // Hover States
         private bool _hovClose = false;
@@ -255,6 +268,8 @@ namespace BlueStacks4FPSTweaker
             _syncTimer.Interval = 1200;
             _syncTimer.Tick += delegate { RefreshTelemetry(false); };
             _syncTimer.Start();
+
+            InitiateUpdateCheck();
         }
 
         private void LoadAssets()
@@ -335,6 +350,16 @@ namespace BlueStacks4FPSTweaker
                 if (_rectMin.Contains(e.Location))
                 {
                     this.WindowState = FormWindowState.Minimized;
+                    return;
+                }
+
+                // Update Notification Badge Click
+                if ((_isUpdateAvailable || _isDownloadingUpdate) && _rectUpdateBadge.Contains(e.Location))
+                {
+                    if (_isUpdateAvailable && !_isDownloadingUpdate)
+                    {
+                        StartUpdateDownload();
+                    }
                     return;
                 }
 
@@ -485,6 +510,18 @@ namespace BlueStacks4FPSTweaker
                         Invalidate();
                         return;
                     }
+                    if (_rectBtnCheckUpdates.Contains(e.Location))
+                    {
+                        if (_isUpdateAvailable && !_isDownloadingUpdate)
+                        {
+                            StartUpdateDownload();
+                        }
+                        else if (!_isDownloadingUpdate)
+                        {
+                            InitiateUpdateCheck();
+                        }
+                        return;
+                    }
                 }
 
                 // Dragging Window
@@ -624,7 +661,20 @@ namespace BlueStacks4FPSTweaker
             {
                 bool hBackDash = _rectBtnBackDash.Contains(e.Location);
                 if (hBackDash != _hovBackDash) { _hovBackDash = hBackDash; anyHovChange = true; }
+
+                bool hCheckUpdates = _rectBtnCheckUpdates.Contains(e.Location);
+                if (hCheckUpdates != _hovCheckUpdates) { _hovCheckUpdates = hCheckUpdates; anyHovChange = true; }
             }
+
+            bool hUpdateBadge = (_isUpdateAvailable || _isDownloadingUpdate) && _rectUpdateBadge.Contains(e.Location);
+            if (hUpdateBadge != _hovUpdateBadge) { _hovUpdateBadge = hUpdateBadge; anyHovChange = true; }
+
+            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovInfo || _hovUpdateBadge ||
+                (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
+                (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
+                (_currentTab == AppTab.About && (_hovBackDash || _hovCheckUpdates));
+
+            this.Cursor = isClickable ? Cursors.Hand : Cursors.Default;
 
             if (anyHovChange) Invalidate();
 
@@ -717,6 +767,31 @@ namespace BlueStacks4FPSTweaker
                 e.Graphics.DrawImage(_imgGauge, 44, 397, 62, 62);
             }
 
+            // Update Notification Badge (Top Right, if update is found or downloading)
+            if (_isUpdateAvailable || _isDownloadingUpdate)
+            {
+                RectangleF ubRect = new RectangleF(_rectUpdateBadge.X, _rectUpdateBadge.Y, _rectUpdateBadge.Width, _rectUpdateBadge.Height);
+                using (GraphicsPath ubPath = StudioGraphics.CreateRoundedPath(ubRect, 12f))
+                {
+                    Color ubCol1 = _hovUpdateBadge ? Color.FromArgb(220, 60, 255) : ColorNeonPurple;
+                    Color ubCol2 = Color.FromArgb(205, 96, 99);
+                    using (LinearGradientBrush lgb = new LinearGradientBrush(ubRect, ubCol1, ubCol2, 0f))
+                    {
+                        e.Graphics.FillPath(lgb, ubPath);
+                    }
+                    using (Pen p = new Pen(Color.White, 1f))
+                    {
+                        e.Graphics.DrawPath(p, ubPath);
+                    }
+                }
+                string ubText = _isDownloadingUpdate ? ("Downloading: " + _updateProgress + "%") : ("Update " + _latestVersion + " Available");
+                using (Font fUb = FontManager.GetInter(10.5f, FontStyle.Bold, 600))
+                {
+                    SizeF szUb = e.Graphics.MeasureString(ubText, fUb);
+                    e.Graphics.DrawString(ubText, fUb, Brushes.White, ubRect.X + (ubRect.Width - szUb.Width) / 2f, ubRect.Y + (ubRect.Height - szUb.Height) / 2f);
+                }
+            }
+
             // =========================================================================
             // 3. TOP RIGHT WINDOW CONTROLS:
             // Minimize: rounded pill bar (28x5) at (636, 24)
@@ -764,33 +839,37 @@ namespace BlueStacks4FPSTweaker
 
         private void PaintDashboardTab(PaintEventArgs e)
         {
+            float midX = 130f;
+
             // 4. USER GREETING & BLUESTACKS VERSION (GENUINE INTER FONT!)
-            using (Font fHi = FontManager.GetInter(24f, FontStyle.Bold, 600))
+            string greeting = "Hi! " + _userName;
+            using (Font fHi = FontManager.GetInter(22f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Hi! User Name", fHi, Brushes.White, 145, 58);
+                e.Graphics.DrawString(greeting, fHi, Brushes.White, midX, 58);
             }
             using (Font fBs = FontManager.GetInter(15f, FontStyle.Regular, 500))
             {
-                e.Graphics.DrawString("Bluestacks 04", fBs, Brushes.White, 145, 95);
+                e.Graphics.DrawString("Bluestacks 04", fBs, Brushes.White, midX, 95);
             }
 
-            // Version Pill: width: 121px; height: 18px; left: 256px; top: 95px; linear-gradient(90deg, #CD6063 0%, #9900FF 100%), border-radius: 6px
-            RectangleF verRect = new RectangleF(256f, 95f, 121f, 18f);
-            using (GraphicsPath vp = StudioGraphics.CreateRoundedPath(verRect, 6f))
-            {
-                using (LinearGradientBrush lgb = new LinearGradientBrush(verRect, ColorGradEnd, ColorNeonPurple, 0f))
-                {
-                    e.Graphics.FillPath(lgb, vp);
-                }
-            }
-            using (Font fVer = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            // Version Pill: dynamic width based on version text
+            using (Font fVer = FontManager.GetInter(12.5f, FontStyle.Bold, 600))
             {
                 SizeF szVer = e.Graphics.MeasureString(_version, fVer);
+                float pillW = Math.Max(105f, szVer.Width + 18f);
+                RectangleF verRect = new RectangleF(midX + 115f, 95f, pillW, 18f);
+                using (GraphicsPath vp = StudioGraphics.CreateRoundedPath(verRect, 6f))
+                {
+                    using (LinearGradientBrush lgb = new LinearGradientBrush(verRect, ColorGradEnd, ColorNeonPurple, 0f))
+                    {
+                        e.Graphics.FillPath(lgb, vp);
+                    }
+                }
                 e.Graphics.DrawString(_version, fVer, Brushes.White, verRect.X + (verRect.Width - szVer.Width) / 2f, verRect.Y + (verRect.Height - szVer.Height) / 2f);
             }
 
             // 5. OPTIMIZATION BANNER CARD ("I GOT YOU!"):
-            RectangleF bannerRect = new RectangleF(145f, 136f, 306f, 206f);
+            RectangleF bannerRect = new RectangleF(midX, 136f, 302f, 206f);
             using (GraphicsPath bnp = StudioGraphics.CreateRoundedPath(bannerRect, 32f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(bannerRect, ColorNeonPurple, Color.FromArgb(0, 113, 194), 117f))
@@ -807,20 +886,20 @@ namespace BlueStacks4FPSTweaker
 
                 using (Font fSub = FontManager.GetInter(15f, FontStyle.Bold, 600))
                 {
-                    e.Graphics.DrawString("Need To Optimize Your Blustacks 4\nEmulator by Unlocking 90+ Fps.", fSub, Brushes.White, 167, 157);
+                    e.Graphics.DrawString("Need To Optimize Your Blustacks 4\nEmulator by Unlocking 90+ Fps.", fSub, Brushes.White, midX + 22f, 157);
                 }
 
                 // Clean "I GOT YOU!" (No question mark, matching latest design)
                 using (Font fGot = FontManager.GetInter(36f, FontStyle.Bold, 700))
                 {
-                    e.Graphics.DrawString("I GOT YOU!", fGot, Brushes.White, 167, 224);
+                    e.Graphics.DrawString("I GOT YOU!", fGot, Brushes.White, midX + 22f, 224);
                 }
 
                 e.Graphics.Clip = oldClip;
             }
 
             // 6. BLUESTACKS CONTROL CARD (Bottom Left):
-            RectangleF bsCardRect = new RectangleF(145f, 362f, 302f, 100f);
+            RectangleF bsCardRect = new RectangleF(midX, 362f, 302f, 100f);
             using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(bsCardRect, 32f))
             {
                 using (SolidBrush b = new SolidBrush(ColorBorderPlum))
@@ -837,7 +916,7 @@ namespace BlueStacks4FPSTweaker
             {
                 using (SolidBrush hb = new SolidBrush(_hovHelp ? ColorNeonPurple : Color.White))
                 {
-                    e.Graphics.DrawString("Help?", fHelp, hb, 175, 376);
+                    e.Graphics.DrawString("Help?", fHelp, hb, midX + 25f, 376);
                 }
             }
 
@@ -846,7 +925,7 @@ namespace BlueStacks4FPSTweaker
             DrawPillButton20(e.Graphics, _rectRestart, "Restart", _hovRestart);
 
             // 7. RIGHT SIDE CARD (Outer Container):
-            RectangleF rightOuterRect = new RectangleF(457f, 55f, 306f, 407f);
+            RectangleF rightOuterRect = new RectangleF(460f, 55f, 306f, 407f);
             using (GraphicsPath rop = StudioGraphics.CreateRoundedPath(rightOuterRect, 49f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(rightOuterRect, Color.Black, ColorBorderPlum, 90f))
@@ -883,7 +962,7 @@ namespace BlueStacks4FPSTweaker
             DrawQuickSetPill(e.Graphics, _rectPill240, "240", _currentFps == 240);
 
             // 8. INNER GRADIENT CARD (REAL-SYNC EMULATOR HARDWARE SETTINGS):
-            RectangleF gradCardRect = new RectangleF(480f, 245f, 261f, 193f);
+            RectangleF gradCardRect = new RectangleF(482f, 245f, 262f, 193f);
             using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gradCardRect, 49f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(gradCardRect, ColorGradStart, ColorGradEnd, 123f))
@@ -897,21 +976,24 @@ namespace BlueStacks4FPSTweaker
             {
                 using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDpi.X, _rectDpi.Y, _rectDpi.Width, _rectDpi.Height), 12f))
                 {
-                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(35, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(50, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                    using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.2f)) { e.Graphics.DrawPath(p, dp); }
                 }
             }
             if (_hovDisplay)
             {
                 using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDisplay.X, _rectDisplay.Y, _rectDisplay.Width, _rectDisplay.Height), 12f))
                 {
-                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(35, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(50, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                    using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.2f)) { e.Graphics.DrawPath(p, dp); }
                 }
             }
             if (_hovRam)
             {
                 using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectRam.X, _rectRam.Y, _rectRam.Width, _rectRam.Height), 12f))
                 {
-                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(35, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(50, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                    using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.2f)) { e.Graphics.DrawPath(p, dp); }
                 }
             }
 
@@ -921,6 +1003,12 @@ namespace BlueStacks4FPSTweaker
                 e.Graphics.DrawString("Display", fLbl, Brushes.White, 615, 274);
                 e.Graphics.DrawString("RAM", fLbl, Brushes.White, 507, 332);
             }
+
+            // Sleek Dropdown / Edit Indicator Badges for Interactive Controls
+            DrawDropdownIndicator(e.Graphics, 542f, 275f, _hovDpi);
+            DrawDropdownIndicator(e.Graphics, 678f, 275f, _hovDisplay);
+            DrawDropdownIndicator(e.Graphics, 550f, 333f, _hovRam);
+
             using (Font fVal = FontManager.GetInter(20f, FontStyle.Bold, 600))
             {
                 e.Graphics.DrawString(_dpi.ToString(), fVal, Brushes.White, 507, 295);
@@ -980,16 +1068,20 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
+            RectangleF statTitleArea = new RectangleF(170f, 384f, 335f, 24f);
+            RectangleF statDescArea = new RectangleF(170f, 410f, 335f, 38f);
+            using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("1-Click Complete System Optimization", fStatHead, Brushes.White, 170, 388);
+                e.Graphics.DrawString("1-Click Complete System Optimization", fStatHead, Brushes.White, statTitleArea, sfTitle);
             }
+            using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
             using (Font fStatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
             {
                 using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
                 {
                     string statText = string.IsNullOrEmpty(_lastCleanResult) ? _cleanStatusText : _lastCleanResult;
-                    e.Graphics.DrawString(statText, fStatSub, sb, 170, 415);
+                    e.Graphics.DrawString(statText, fStatSub, sb, statDescArea, sfDesc);
                 }
             }
 
@@ -1157,17 +1249,37 @@ namespace BlueStacks4FPSTweaker
                     new { L = "Config FPS Sync", V = "Strict Lock (" + _currentFps + " FPS)" },
                     new { L = "BootParameters DPI", V = "Synchronized (" + _dpi + " DPI)" },
                     new { L = "Resolution FrameBuffer", V = _display + " (Synced)" },
-                    new { L = "Memory Allocation", V = _ramText + " (Verified)" },
-                    new { L = "Target Optimization", V = "Free Fire Pro Gaming" }
+                    new { L = "Memory Allocation", V = _ramText + " (Verified)" }
                 };
 
                 float yOff = 168f;
                 foreach (var s in syncItems)
                 {
                     e.Graphics.DrawString(s.L, fItemLbl, Brushes.White, 470f, yOff);
-                    e.Graphics.DrawString(s.V, fItemVal, bGreen, 470f, yOff + 18f);
-                    yOff += 36f;
+                    e.Graphics.DrawString(s.V, fItemVal, bGreen, 470f, yOff + 17f);
+                    yOff += 34f;
                 }
+            }
+
+            // Check for Updates Button on Card 2
+            RectangleF updBtnRect = new RectangleF(_rectBtnCheckUpdates.X, _rectBtnCheckUpdates.Y, _rectBtnCheckUpdates.Width, _rectBtnCheckUpdates.Height);
+            using (GraphicsPath ubp = StudioGraphics.CreateRoundedPath(updBtnRect, 14f))
+            {
+                Color btnCol = _hovCheckUpdates ? ColorNeonPurple : Color.FromArgb(70, 20, 100);
+                using (SolidBrush b = new SolidBrush(btnCol))
+                {
+                    e.Graphics.FillPath(b, ubp);
+                }
+                using (Pen p = new Pen(ColorNeonPurple, 1.2f))
+                {
+                    e.Graphics.DrawPath(p, ubp);
+                }
+            }
+            string updBtnText = _isUpdateAvailable ? ("INSTALL UPDATE " + _latestVersion) : (_isDownloadingUpdate ? ("DOWNLOADING " + _updateProgress + "%") : "CHECK FOR UPDATES");
+            using (Font fUpdBtn = FontManager.GetInter(11.5f, FontStyle.Bold, 600))
+            {
+                SizeF szUpd = e.Graphics.MeasureString(updBtnText, fUpdBtn);
+                e.Graphics.DrawString(updBtnText, fUpdBtn, Brushes.White, updBtnRect.X + (updBtnRect.Width - szUpd.Width) / 2f, updBtnRect.Y + (updBtnRect.Height - szUpd.Height) / 2f);
             }
 
             // Bottom Banner: Developer & Features Banner (145, 370, 593, 86)
@@ -1180,15 +1292,19 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
+            RectangleF featTitleArea = new RectangleF(170f, 384f, 335f, 24f);
+            RectangleF featDescArea = new RectangleF(170f, 410f, 335f, 38f);
+            using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fFeatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Ultra-Smooth FPS Engineering", fFeatHead, Brushes.White, 170, 388);
+                e.Graphics.DrawString("Ultra-Smooth FPS Engineering", fFeatHead, Brushes.White, featTitleArea, sfTitle);
             }
+            using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
             using (Font fFeatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
             {
                 using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
                 {
-                    e.Graphics.DrawString("Eliminates emulator micro-stutters and stabilizes frame rates.", fFeatSub, sb, 170, 415);
+                    e.Graphics.DrawString("Eliminates emulator micro-stutters and stabilizes frame rates.", fFeatSub, sb, featDescArea, sfDesc);
                 }
             }
 
@@ -1253,6 +1369,118 @@ namespace BlueStacks4FPSTweaker
                 SizeF sz = g.MeasureString(text, f);
                 g.DrawString(text, f, Brushes.White, r.X + (r.Width - sz.Width) / 2f, r.Y + (r.Height - sz.Height) / 2f);
             }
+        }
+
+        private void DrawDropdownIndicator(Graphics g, float x, float y, bool isHovered)
+        {
+            RectangleF pill = new RectangleF(x, y, 16f, 16f);
+            using (GraphicsPath p = StudioGraphics.CreateRoundedPath(pill, 4f))
+            {
+                using (SolidBrush b = new SolidBrush(isHovered ? Color.FromArgb(80, Color.White) : Color.FromArgb(40, Color.Black)))
+                {
+                    g.FillPath(b, p);
+                }
+                using (Pen stroke = new Pen(isHovered ? Color.White : Color.FromArgb(180, 255, 255, 255), 1f))
+                {
+                    g.DrawPath(stroke, p);
+                }
+            }
+            PointF[] pts = new PointF[]
+            {
+                new PointF(x + 4.5f, y + 6f),
+                new PointF(x + 11.5f, y + 6f),
+                new PointF(x + 8f, y + 10.5f)
+            };
+            using (SolidBrush b = new SolidBrush(Color.White))
+            {
+                g.FillPolygon(b, pts);
+            }
+        }
+
+        private void InitiateUpdateCheck()
+        {
+            _updateStatus = "Checking for updates...";
+            Invalidate();
+
+            AutoUpdater.CheckForUpdatesAsync(res =>
+            {
+                if (this.IsDisposed || !this.IsHandleCreated) return;
+                this.BeginInvoke((MethodInvoker)delegate
+                {
+                    if (!string.IsNullOrEmpty(res.ErrorMessage))
+                    {
+                        _updateStatus = "Update check: Up to date (v" + AutoUpdater.CURRENT_VERSION + ")";
+                        _isUpdateAvailable = false;
+                    }
+                    else if (res.IsUpdateAvailable)
+                    {
+                        _updateStatus = "New update available: " + res.LatestVersion;
+                        _isUpdateAvailable = true;
+                        _latestVersion = res.LatestVersion;
+                        _updateDownloadUrl = res.DownloadUrl;
+                        Invalidate();
+
+                        DialogResult dr = MessageBox.Show(
+                            "A new version of Bloomex (" + res.LatestVersion + ") is available on GitHub!\n\nWould you like to download and install the update now?",
+                            "Bloomex Update Available",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Information);
+
+                        if (dr == DialogResult.Yes && !string.IsNullOrEmpty(_updateDownloadUrl))
+                        {
+                            StartUpdateDownload();
+                        }
+                    }
+                    else
+                    {
+                        _updateStatus = "Bloomex is up to date (v" + AutoUpdater.CURRENT_VERSION + ")";
+                        _isUpdateAvailable = false;
+                        Invalidate();
+                    }
+                });
+            });
+        }
+
+        private void StartUpdateDownload()
+        {
+            if (_isDownloadingUpdate) return;
+            if (string.IsNullOrEmpty(_updateDownloadUrl))
+            {
+                try { Process.Start("https://github.com/susaracreations/Bloomex/releases"); } catch { }
+                return;
+            }
+
+            _isDownloadingUpdate = true;
+            _updateProgress = 0;
+            _updateStatus = "Downloading update: 0%...";
+            Invalidate();
+
+            AutoUpdater.DownloadAndApplyUpdate(_updateDownloadUrl,
+                pct =>
+                {
+                    if (this.IsDisposed) return;
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        _updateProgress = pct;
+                        _updateStatus = "Downloading update: " + pct + "%...";
+                        Invalidate();
+                    });
+                },
+                msg =>
+                {
+                    // Success
+                },
+                err =>
+                {
+                    if (this.IsDisposed) return;
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        _isDownloadingUpdate = false;
+                        _updateStatus = "Update failed: " + err;
+                        Invalidate();
+                        MessageBox.Show("Update failed: " + err, "Bloomex Updater", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    });
+                });
         }
 
         // =========================================================================

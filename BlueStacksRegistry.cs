@@ -79,7 +79,13 @@ namespace BlueStacks4FPSTweaker
                         if (instDir != null) config.InstallDir = instDir.ToString();
 
                         object ver = baseKey.GetValue("Version");
-                        if (ver != null) config.Version = ver.ToString();
+                        if (ver != null && !string.IsNullOrEmpty(ver.ToString()))
+                            config.Version = ver.ToString();
+                        else
+                        {
+                            object cver = baseKey.GetValue("ClientVersion");
+                            if (cver != null) config.Version = cver.ToString();
+                        }
                     }
                 }
 
@@ -87,6 +93,27 @@ namespace BlueStacks4FPSTweaker
                 {
                     string def = @"C:\Program Files\BlueStacks\";
                     if (Directory.Exists(def)) config.InstallDir = def;
+                }
+
+                if (string.IsNullOrEmpty(config.Version) && !string.IsNullOrEmpty(config.InstallDir))
+                {
+                    string exe1 = Path.Combine(config.InstallDir, "Bluestacks.exe");
+                    string exe2 = Path.Combine(config.InstallDir, "HD-Player.exe");
+                    string targetExe = File.Exists(exe1) ? exe1 : (File.Exists(exe2) ? exe2 : null);
+                    if (targetExe != null)
+                    {
+                        try
+                        {
+                            System.Diagnostics.FileVersionInfo fvi = System.Diagnostics.FileVersionInfo.GetVersionInfo(targetExe);
+                            if (!string.IsNullOrEmpty(fvi.FileVersion)) config.Version = fvi.FileVersion;
+                        }
+                        catch { }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(config.Version))
+                {
+                    config.Version = "4.240.30.1002";
                 }
 
                 // 1. Read BootParameters & Memory from Guests\Android
