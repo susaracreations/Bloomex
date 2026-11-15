@@ -1852,11 +1852,11 @@ namespace BlueStacks4FPSTweaker
                 {
                     e.Graphics.DrawString("About Bloomex", fTitle, Brushes.White, 202, 42);
                 }
-                using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+                using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 500))
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Version 0.2.0", fSub, sb, 202, 72);
+                        e.Graphics.DrawString("Version 0.2.0 • Created by Susara Viduneth", fSub, sb, 202, 72);
                     }
                 }
             }
@@ -1866,11 +1866,11 @@ namespace BlueStacks4FPSTweaker
                 {
                     e.Graphics.DrawString("About Bloomex", fTitle, Brushes.White, 145, 48);
                 }
-                using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+                using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 500))
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Version 0.2.0", fSub, sb, 145, 82);
+                        e.Graphics.DrawString("Version 0.2.0 • Created by Susara Viduneth", fSub, sb, 145, 82);
                     }
                 }
             }
