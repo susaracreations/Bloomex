@@ -13,7 +13,7 @@ namespace BlueStacks4FPSTweaker
     public enum AppTab
     {
         Dashboard,
-        GameMode,
+        CommonProfile,
         CleanUp,
         Settings,
         About
@@ -444,7 +444,7 @@ namespace BlueStacks4FPSTweaker
                 }
                 if (_rectIconGameMode.Contains(e.Location))
                 {
-                    _currentTab = AppTab.GameMode;
+                    _currentTab = AppTab.CommonProfile;
                     Invalidate();
                     return;
                 }
@@ -556,8 +556,8 @@ namespace BlueStacks4FPSTweaker
                         return;
                     }
                 }
-                // TAB 2: GAMEMODE ACTIONS
-                else if (_currentTab == AppTab.GameMode)
+                // TAB 2: COMMON PROFILE ACTIONS
+                else if (_currentTab == AppTab.CommonProfile)
                 {
                     if (_rectRowExplorer.Contains(e.Location))
                     {
@@ -795,7 +795,7 @@ namespace BlueStacks4FPSTweaker
                 bool hRam = _rectRam.Contains(e.Location);
                 if (hRam != _hovRam) { _hovRam = hRam; anyHovChange = true; }
             }
-            else if (_currentTab == AppTab.GameMode)
+            else if (_currentTab == AppTab.CommonProfile)
             {
                 bool hSwExp = _rectRowExplorer.Contains(e.Location);
                 if (hSwExp != _hovRowExplorer) { _hovRowExplorer = hSwExp; anyHovChange = true; }
@@ -857,7 +857,7 @@ namespace BlueStacks4FPSTweaker
 
             bool isClickable = _hovClose || _hovMin || _hovHome || _hovGameMode || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
                 (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
-                (_currentTab == AppTab.GameMode && (_hovRowExplorer || _hovRowDwm || _hovRowTimer || _hovRowCache || _hovRowSnapTap || _hovRowPriority || _hovToggleGameMode)) ||
+                (_currentTab == AppTab.CommonProfile && (_hovRowExplorer || _hovRowDwm || _hovRowTimer || _hovRowCache || _hovRowSnapTap || _hovRowPriority || _hovToggleGameMode)) ||
                 (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
                 (_currentTab == AppTab.Settings && (_hovGpuCheck || _hovSaveSettings)) ||
                 (_currentTab == AppTab.About && (_hovBackDash || _hovCheckUpdates));
@@ -939,8 +939,8 @@ namespace BlueStacks4FPSTweaker
                 e.Graphics.DrawImage(_imgHome, 62, 63, 26, 26);
             }
 
-            // 2. Game Mode (Center Y = 138)
-            if (_currentTab == AppTab.GameMode)
+            // 2. Common Profile (Center Y = 138)
+            if (_currentTab == AppTab.CommonProfile)
             {
                 e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 114f, circleDiam, circleDiam);
                 e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 114f, circleDiam, circleDiam);
@@ -1062,9 +1062,9 @@ namespace BlueStacks4FPSTweaker
             {
                 PaintDashboardTab(e);
             }
-            else if (_currentTab == AppTab.GameMode)
+            else if (_currentTab == AppTab.CommonProfile)
             {
-                PaintGameModeTab(e);
+                PaintCommonProfileTab(e);
             }
             else if (_currentTab == AppTab.CleanUp)
             {
@@ -1293,7 +1293,7 @@ namespace BlueStacks4FPSTweaker
             }
         }
 
-        private void PaintGameModeTab(PaintEventArgs e)
+        private void PaintCommonProfileTab(PaintEventArgs e)
         {
             // 1. Header
             using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
@@ -1386,7 +1386,7 @@ namespace BlueStacks4FPSTweaker
             using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                string statusTitle = GameModeEngine.IsGameModeActive ? "Game Mode: Active" : "Game Mode: Standby";
+                string statusTitle = GameModeEngine.IsGameModeActive ? "Common Profile: Active" : "Common Profile: Standby";
                 e.Graphics.DrawString(statusTitle, fStatHead, Brushes.White, statTitleArea, sfTitle);
             }
             using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
@@ -1396,7 +1396,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     string statusDesc = GameModeEngine.IsGameModeActive
                         ? "Ultra-low latency active • Explorer suspended • 0.5ms timer • Snap Tap running"
-                        : "Ready to launch ultra-latency gaming profile for BlueStacks 4.";
+                        : "Ready to launch Common Profile for BlueStacks 4.";
                     e.Graphics.DrawString(statusDesc, fStatSub, sb, statDescArea, sfDesc);
                 }
             }
@@ -1418,7 +1418,7 @@ namespace BlueStacks4FPSTweaker
                     }
                 }
             }
-            string btnText = GameModeEngine.IsGameModeActive ? "STOP GAME MODE" : "START GAME MODE";
+            string btnText = GameModeEngine.IsGameModeActive ? "STOP PROFILE" : "START PROFILE";
             using (Font fBtn = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
             {
                 using (SolidBrush b = new SolidBrush(ColorNeonPurple))
