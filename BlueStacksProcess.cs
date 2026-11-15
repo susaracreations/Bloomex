@@ -74,13 +74,15 @@ namespace BlueStacks4FPSTweaker
                 return publicDesktopLnk;
             }
 
-            // 3. Fallback search paths
+            // 3. Fallback search paths across standard drives
             string[] defaultDirs = new string[]
             {
                 @"C:\Program Files\BlueStacks\",
-                @"F:\Bluestacks 04\BlueStacks\",
                 @"C:\Program Files (x86)\BlueStacks\",
-                @"D:\Program Files\BlueStacks\"
+                @"D:\Program Files\BlueStacks\",
+                @"D:\BlueStacks\",
+                @"E:\Program Files\BlueStacks\",
+                @"E:\BlueStacks\"
             };
 
             foreach (string dir in defaultDirs)

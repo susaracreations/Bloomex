@@ -36,8 +36,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Windows\Fonts"),
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fonts"),
-                    Path.Combine(Directory.GetCurrentDirectory(), "fonts"),
-                    @"C:\Users\Susara Viduneth\.gemini\antigravity\scratch\BlueStacks4_FPS_Tweaker\fonts"
+                    Path.Combine(Directory.GetCurrentDirectory(), "fonts")
                 };
 
                 string[] fontFiles = new string[] { "Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf", "Inter-Bold.ttf" };
@@ -174,7 +173,7 @@ namespace BlueStacks4FPSTweaker
 
         // Settings Page & Dedicated GPU Controls
         private bool _preferDedicatedGpu = true;
-        private string _gpuName = "NVIDIA GeForce RTX 5050/PCIe/SSE2";
+        private string _gpuName = "Dedicated Graphics Processor";
         private Rectangle _rectGpuCheck = new Rectangle(170, 160, 22, 22);
         private Rectangle _rectGpuToggleCard = new Rectangle(145, 116, 593, 118);
         private Rectangle _rectBtnSaveSettings = new Rectangle(515, 388, 200, 48);
@@ -315,8 +314,7 @@ namespace BlueStacks4FPSTweaker
             string[] paths = new string[]
             {
                 relativePath,
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, relativePath),
-                Path.Combine(@"C:\Users\Susara Viduneth\.gemini\antigravity\scratch\BlueStacks4_FPS_Tweaker", relativePath)
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, relativePath)
             };
 
             foreach (string p in paths)
@@ -1299,7 +1297,7 @@ namespace BlueStacks4FPSTweaker
                 e.Graphics.DrawString("Prefer dedicated computer graphics (NVIDIA only)", fCheckLbl, Brushes.White, 204, 161);
             }
 
-            // Subtitle: GPU in use: NVIDIA GeForce RTX 5050/PCIe/SSE2
+            // Subtitle: GPU in use (dynamically detected)
             using (Font fGpuUse = FontManager.GetInter(13f, FontStyle.Regular, 400))
             {
                 using (SolidBrush gb = new SolidBrush(Color.FromArgb(170, 170, 210)))
@@ -1367,7 +1365,7 @@ namespace BlueStacks4FPSTweaker
             {
                 _settingsStatusText = "Dedicated GPU setting saved (" + (_preferDedicatedGpu ? "ForceDedicatedGPU=1" : "ForceDedicatedGPU=0") + ")!";
                 Invalidate();
-                string statusMsg = _preferDedicatedGpu ? "Prefer Dedicated Computer Graphics: ENABLED\n(NVIDIA GeForce RTX 5050 Active)" : "Prefer Dedicated Computer Graphics: DISABLED";
+                string statusMsg = _preferDedicatedGpu ? ("Prefer Dedicated Computer Graphics: ENABLED\n(" + _gpuName + " Active)") : "Prefer Dedicated Computer Graphics: DISABLED";
                 MessageBox.Show("GPU Setting Successfully Applied to Registry!\n\n• " + statusMsg + "\n• Registry: HKLM\\SOFTWARE\\BlueStacks\\Config\\ForceDedicatedGPU = " + (_preferDedicatedGpu ? "1" : "0") + "\n\nRestart BlueStacks 4 to initialize on the dedicated GPU.", "GPU Setting Applied", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
@@ -1764,18 +1762,39 @@ namespace BlueStacks4FPSTweaker
         // =========================================================================
         // CLEANUP ACTIONS IMPLEMENTATION
         // =========================================================================
+        private string[] GetBlueStacksLogDirectories()
+        {
+            var list = new System.Collections.Generic.List<string>();
+            if (!string.IsNullOrEmpty(_installDir))
+            {
+                list.Add(Path.Combine(_installDir, "Logs"));
+                list.Add(Path.Combine(_installDir, @"Engine\Android\Logs"));
+            }
+            try
+            {
+                BlueStacksConfig curCfg = BlueStacksRegistry.ReadConfig();
+                if (!string.IsNullOrEmpty(curCfg.DataDir))
+                {
+                    list.Add(Path.Combine(curCfg.DataDir, "Logs"));
+                    list.Add(Path.Combine(curCfg.DataDir, @"Android\Logs"));
+                    list.Add(Path.Combine(curCfg.DataDir, @"UserData\Log"));
+                }
+            }
+            catch { }
+
+            list.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BlueStacks\Logs"));
+            list.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"BlueStacks\Engine\UserData\Log"));
+            list.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"BlueStacks\Logs"));
+            return list.ToArray();
+        }
+
         private void PerformBlueStacksClean()
         {
             int files = 0;
             long bytes = 0;
             try
             {
-                string[] logDirs = new string[]
-                {
-                    @"F:\Bluestacks 04\BlueStacks\Logs",
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BlueStacks\Logs"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"BlueStacks\Engine\UserData\Log")
-                };
+                string[] logDirs = GetBlueStacksLogDirectories();
 
                 foreach (string dir in logDirs)
                 {
@@ -1889,11 +1908,7 @@ namespace BlueStacks4FPSTweaker
                 // 1. BlueStacks Logs
                 int bsFiles = 0;
                 long bsBytes = 0;
-                string[] logDirs = new string[]
-                {
-                    @"F:\Bluestacks 04\BlueStacks\Logs",
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BlueStacks\Logs")
-                };
+                string[] logDirs = GetBlueStacksLogDirectories();
                 foreach (string dir in logDirs)
                 {
                     if (Directory.Exists(dir))

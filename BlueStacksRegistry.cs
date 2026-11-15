@@ -38,6 +38,7 @@ namespace BlueStacks4FPSTweaker
         }
 
         public string InstallDir { get; set; }
+        public string DataDir { get; set; }
         public string Version { get; set; }
         public bool ForceDedicatedGPU { get; set; }
         public string AvailableGPUDetails { get; set; }
@@ -79,6 +80,9 @@ namespace BlueStacks4FPSTweaker
                     {
                         object instDir = baseKey.GetValue("InstallDir");
                         if (instDir != null) config.InstallDir = instDir.ToString();
+
+                        object dtDir = baseKey.GetValue("DataDir");
+                        if (dtDir != null) config.DataDir = dtDir.ToString();
 
                         object ver = baseKey.GetValue("Version");
                         if (ver != null && !string.IsNullOrEmpty(ver.ToString()))
@@ -240,7 +244,7 @@ namespace BlueStacks4FPSTweaker
                 }
                 if (string.IsNullOrEmpty(config.AvailableGPUDetails))
                 {
-                    config.AvailableGPUDetails = "NVIDIA GeForce RTX 5050/PCIe/SSE2";
+                    config.AvailableGPUDetails = GetSystemGpuName();
                 }
             }
             catch (Exception)
@@ -385,6 +389,50 @@ namespace BlueStacks4FPSTweaker
                 key = localMachine32.OpenSubKey(relativePath, writable);
             }
             return key;
+        }
+
+        public static string GetSystemGpuName()
+        {
+            try
+            {
+                // Scan Windows display class for primary adapter (NVIDIA, AMD, Intel)
+                for (int i = 0; i < 4; i++)
+                {
+                    string subPath = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\000" + i;
+                    using (RegistryKey k = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(subPath))
+                    {
+                        if (k != null)
+                        {
+                            object desc = k.GetValue("DriverDesc");
+                            if (desc != null && !string.IsNullOrEmpty(desc.ToString()))
+                            {
+                                string name = desc.ToString().Trim();
+                                if (name.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    name.IndexOf("Radeon", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    name.IndexOf("AMD", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    name.IndexOf("GeForce", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    return name;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // If no discrete match, read 0000
+                using (RegistryKey k0 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
+                {
+                    if (k0 != null)
+                    {
+                        object desc = k0.GetValue("DriverDesc");
+                        if (desc != null && !string.IsNullOrEmpty(desc.ToString()))
+                            return desc.ToString().Trim();
+                    }
+                }
+            }
+            catch { }
+
+            return "Dedicated Graphics Processor";
         }
     }
 }
