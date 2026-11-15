@@ -1298,7 +1298,7 @@ namespace BlueStacks4FPSTweaker
             // 1. Header
             using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
             {
-                e.Graphics.DrawString("Common Profile", fTitle, Brushes.White, 145, 48);
+                e.Graphics.DrawString("Game Mod", fTitle, Brushes.White, 145, 48);
             }
             using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 400))
             {
@@ -1386,7 +1386,7 @@ namespace BlueStacks4FPSTweaker
             using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
             using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
             {
-                string statusTitle = GameModeEngine.IsGameModeActive ? "Common Profile: Active" : "Common Profile: Standby";
+                string statusTitle = GameModeEngine.IsGameModeActive ? "Game Mod: Active" : "Game Mod: Standby";
                 e.Graphics.DrawString(statusTitle, fStatHead, Brushes.White, statTitleArea, sfTitle);
             }
             using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
@@ -1396,7 +1396,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     string statusDesc = GameModeEngine.IsGameModeActive
                         ? "Ultra-low latency active • Explorer suspended • 0.5ms timer • Snap Tap running"
-                        : "Ready to launch Common Profile for BlueStacks 4.";
+                        : "Ready to launch Game Mod for BlueStacks 4.";
                     e.Graphics.DrawString(statusDesc, fStatSub, sb, statDescArea, sfDesc);
                 }
             }
@@ -1418,7 +1418,7 @@ namespace BlueStacks4FPSTweaker
                     }
                 }
             }
-            string btnText = GameModeEngine.IsGameModeActive ? "STOP PROFILE" : "START PROFILE";
+            string btnText = GameModeEngine.IsGameModeActive ? "STOP GAME MOD" : "START GAME MOD";
             using (Font fBtn = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
             {
                 using (SolidBrush b = new SolidBrush(ColorNeonPurple))
