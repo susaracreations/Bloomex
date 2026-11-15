@@ -1118,9 +1118,17 @@ namespace BlueStacks4FPSTweaker
             RectangleF applyRect = new RectangleF(_rectApply.X, _rectApply.Y, _rectApply.Width, _rectApply.Height);
             using (GraphicsPath ap = StudioGraphics.CreateRoundedPath(applyRect, 15.5f))
             {
-                using (SolidBrush b = new SolidBrush(_hovApply ? Color.White : ColorLightGray))
+                Color btnCol = _hovApply ? Color.FromArgb(240, 230, 255) : Color.White;
+                using (SolidBrush b = new SolidBrush(btnCol))
                 {
                     e.Graphics.FillPath(b, ap);
+                }
+                if (_hovApply)
+                {
+                    using (Pen p = new Pen(ColorNeonPurple, 1.5f))
+                    {
+                        e.Graphics.DrawPath(p, ap);
+                    }
                 }
             }
             using (Font fApply = FontManager.GetInter(15f, FontStyle.Bold, 600))
@@ -1185,9 +1193,17 @@ namespace BlueStacks4FPSTweaker
             RectangleF btnAllRect = new RectangleF(_rectBtnCleanAll.X, _rectBtnCleanAll.Y, _rectBtnCleanAll.Width, _rectBtnCleanAll.Height);
             using (GraphicsPath bap = StudioGraphics.CreateRoundedPath(btnAllRect, 24f))
             {
-                using (SolidBrush b = new SolidBrush(_hovCleanAll ? Color.White : ColorLightGray))
+                Color btnCol = _hovCleanAll ? Color.FromArgb(240, 230, 255) : Color.White;
+                using (SolidBrush b = new SolidBrush(btnCol))
                 {
                     e.Graphics.FillPath(b, bap);
+                }
+                if (_hovCleanAll)
+                {
+                    using (Pen p = new Pen(ColorNeonPurple, 1.5f))
+                    {
+                        e.Graphics.DrawPath(p, bap);
+                    }
                 }
             }
             using (Font fAll = FontManager.GetInter(14f, FontStyle.Bold, 600))
@@ -1361,9 +1377,17 @@ namespace BlueStacks4FPSTweaker
             RectangleF btnSaveRect = new RectangleF(_rectBtnSaveSettings.X, _rectBtnSaveSettings.Y, _rectBtnSaveSettings.Width, _rectBtnSaveSettings.Height);
             using (GraphicsPath bap = StudioGraphics.CreateRoundedPath(btnSaveRect, 24f))
             {
-                using (SolidBrush b = new SolidBrush(_hovSaveSettings ? Color.White : ColorLightGray))
+                Color btnCol = _hovSaveSettings ? Color.FromArgb(240, 230, 255) : Color.White;
+                using (SolidBrush b = new SolidBrush(btnCol))
                 {
                     e.Graphics.FillPath(b, bap);
+                }
+                if (_hovSaveSettings)
+                {
+                    using (Pen p = new Pen(ColorNeonPurple, 1.5f))
+                    {
+                        e.Graphics.DrawPath(p, bap);
+                    }
                 }
             }
             using (Font fAll = FontManager.GetInter(14f, FontStyle.Bold, 600))
@@ -1591,9 +1615,17 @@ namespace BlueStacks4FPSTweaker
             RectangleF btnBackRect = new RectangleF(_rectBtnBackDash.X, _rectBtnBackDash.Y, _rectBtnBackDash.Width, _rectBtnBackDash.Height);
             using (GraphicsPath bbp = StudioGraphics.CreateRoundedPath(btnBackRect, 24f))
             {
-                using (SolidBrush b = new SolidBrush(_hovBackDash ? Color.White : ColorLightGray))
+                Color btnCol = _hovBackDash ? Color.FromArgb(240, 230, 255) : Color.White;
+                using (SolidBrush b = new SolidBrush(btnCol))
                 {
                     e.Graphics.FillPath(b, bbp);
+                }
+                if (_hovBackDash)
+                {
+                    using (Pen p = new Pen(ColorNeonPurple, 1.5f))
+                    {
+                        e.Graphics.DrawPath(p, bbp);
+                    }
                 }
             }
             using (Font fHomeBtn = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
