@@ -28,7 +28,7 @@ if not exist %CSC% (
       /out:Bloomex.exe ^
       /optimize+ ^
       /r:System.dll,System.Drawing.dll,System.Windows.Forms.dll ^
-      AutoUpdater.cs BlueStacksRegistry.cs BlueStacksProcess.cs UIComponents.cs FigmaVioletForm.cs Program.cs
+      AutoUpdater.cs BlueStacksRegistry.cs BlueStacksProcess.cs GameModeEngine.cs UIComponents.cs FigmaVioletForm.cs Program.cs
 
 if %errorlevel% neq 0 (
     echo.

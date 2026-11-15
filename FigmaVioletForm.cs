@@ -13,6 +13,7 @@ namespace BlueStacks4FPSTweaker
     public enum AppTab
     {
         Dashboard,
+        GameMode,
         CleanUp,
         Settings,
         About
@@ -165,11 +166,21 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectClose = new Rectangle(748, 14, 34, 26);
         private Rectangle _rectMin = new Rectangle(710, 14, 34, 26);
         
-        // Left Bar Action Icons (Tab Navigation)
-        private Rectangle _rectIconHome = new Rectangle(50, 56, 50, 48);
-        private Rectangle _rectIconTrash = new Rectangle(50, 120, 50, 48);
-        private Rectangle _rectIconSettings = new Rectangle(50, 184, 50, 48);
-        private Rectangle _rectIconInfo = new Rectangle(50, 248, 50, 48);
+        // Left Bar Action Icons (Tab Navigation - 5 Tabs)
+        private Rectangle _rectIconHome = new Rectangle(51, 52, 48, 48);
+        private Rectangle _rectIconGameMode = new Rectangle(51, 114, 48, 48);
+        private Rectangle _rectIconTrash = new Rectangle(51, 176, 48, 48);
+        private Rectangle _rectIconSettings = new Rectangle(51, 238, 48, 48);
+        private Rectangle _rectIconInfo = new Rectangle(51, 300, 48, 48);
+
+        // Game Mode Page Controls
+        private Rectangle _rectRowExplorer = new Rectangle(155, 155, 270, 50);
+        private Rectangle _rectRowDwm = new Rectangle(155, 215, 270, 50);
+        private Rectangle _rectRowTimer = new Rectangle(155, 275, 270, 50);
+        private Rectangle _rectRowCache = new Rectangle(460, 155, 270, 50);
+        private Rectangle _rectRowSnapTap = new Rectangle(460, 215, 270, 50);
+        private Rectangle _rectRowPriority = new Rectangle(460, 275, 270, 50);
+        private Rectangle _rectBtnToggleGameMode = new Rectangle(490, 388, 225, 48);
 
         // Settings Page & Dedicated GPU Controls
         private bool _preferDedicatedGpu = true;
@@ -209,9 +220,17 @@ namespace BlueStacks4FPSTweaker
         private bool _hovClose = false;
         private bool _hovMin = false;
         private bool _hovHome = false;
+        private bool _hovGameMode = false;
         private bool _hovTrash = false;
         private bool _hovSettings = false;
         private bool _hovInfo = false;
+        private bool _hovRowExplorer = false;
+        private bool _hovRowDwm = false;
+        private bool _hovRowTimer = false;
+        private bool _hovRowCache = false;
+        private bool _hovRowSnapTap = false;
+        private bool _hovRowPriority = false;
+        private bool _hovToggleGameMode = false;
         private bool _hovHelp = false;
         private bool _hovStart = false;
         private bool _hovStop = false;
@@ -352,6 +371,44 @@ namespace BlueStacks4FPSTweaker
             ApplyWindowCurves();
         }
 
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            GameModeEngine.RegisterHotkeys(this.Handle);
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            GameModeEngine.UnregisterHotkeys(this.Handle);
+            base.OnHandleDestroyed(e);
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            GameModeEngine.Deactivate();
+            base.OnFormClosing(e);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_HOTKEY = 0x0312;
+            if (m.Msg == WM_HOTKEY)
+            {
+                int id = m.WParam.ToInt32();
+                if (id == GameModeEngine.HOTKEY_ID_GAMEMODE)
+                {
+                    GameModeEngine.Toggle();
+                    Invalidate();
+                }
+                else if (id == GameModeEngine.HOTKEY_ID_CLEANCACHE)
+                {
+                    GameModeEngine.PurgeGameCaches();
+                    Invalidate();
+                }
+            }
+            base.WndProc(ref m);
+        }
+
         protected override void OnMouseDown(MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -382,6 +439,12 @@ namespace BlueStacks4FPSTweaker
                 if (_rectIconHome.Contains(e.Location))
                 {
                     _currentTab = AppTab.Dashboard;
+                    Invalidate();
+                    return;
+                }
+                if (_rectIconGameMode.Contains(e.Location))
+                {
+                    _currentTab = AppTab.GameMode;
                     Invalidate();
                     return;
                 }
@@ -493,7 +556,53 @@ namespace BlueStacks4FPSTweaker
                         return;
                     }
                 }
-                // TAB 2: CLEANUP ACTIONS
+                // TAB 2: GAMEMODE ACTIONS
+                else if (_currentTab == AppTab.GameMode)
+                {
+                    if (_rectRowExplorer.Contains(e.Location))
+                    {
+                        GameModeEngine.OptDisableExplorer = !GameModeEngine.OptDisableExplorer;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectRowDwm.Contains(e.Location))
+                    {
+                        GameModeEngine.OptDisableDwm = !GameModeEngine.OptDisableDwm;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectRowTimer.Contains(e.Location))
+                    {
+                        GameModeEngine.OptTimerResolution = !GameModeEngine.OptTimerResolution;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectRowCache.Contains(e.Location))
+                    {
+                        GameModeEngine.OptCleanCacheOnLaunch = !GameModeEngine.OptCleanCacheOnLaunch;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectRowSnapTap.Contains(e.Location))
+                    {
+                        GameModeEngine.OptSnapTap = !GameModeEngine.OptSnapTap;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectRowPriority.Contains(e.Location))
+                    {
+                        GameModeEngine.OptPriorityBoost = !GameModeEngine.OptPriorityBoost;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectBtnToggleGameMode.Contains(e.Location))
+                    {
+                        GameModeEngine.Toggle();
+                        Invalidate();
+                        return;
+                    }
+                }
+                // TAB 3: CLEANUP ACTIONS
                 else if (_currentTab == AppTab.CleanUp)
                 {
                     if (_rectBtnCleanBs.Contains(e.Location))
@@ -648,6 +757,9 @@ namespace BlueStacks4FPSTweaker
             bool hHome = _rectIconHome.Contains(e.Location);
             if (hHome != _hovHome) { _hovHome = hHome; anyHovChange = true; }
 
+            bool hGameMode = _rectIconGameMode.Contains(e.Location);
+            if (hGameMode != _hovGameMode) { _hovGameMode = hGameMode; anyHovChange = true; }
+
             bool hTrash = _rectIconTrash.Contains(e.Location);
             if (hTrash != _hovTrash) { _hovTrash = hTrash; anyHovChange = true; }
 
@@ -682,6 +794,29 @@ namespace BlueStacks4FPSTweaker
 
                 bool hRam = _rectRam.Contains(e.Location);
                 if (hRam != _hovRam) { _hovRam = hRam; anyHovChange = true; }
+            }
+            else if (_currentTab == AppTab.GameMode)
+            {
+                bool hSwExp = _rectRowExplorer.Contains(e.Location);
+                if (hSwExp != _hovRowExplorer) { _hovRowExplorer = hSwExp; anyHovChange = true; }
+
+                bool hSwDwm = _rectRowDwm.Contains(e.Location);
+                if (hSwDwm != _hovRowDwm) { _hovRowDwm = hSwDwm; anyHovChange = true; }
+
+                bool hSwTimer = _rectRowTimer.Contains(e.Location);
+                if (hSwTimer != _hovRowTimer) { _hovRowTimer = hSwTimer; anyHovChange = true; }
+
+                bool hSwCache = _rectRowCache.Contains(e.Location);
+                if (hSwCache != _hovRowCache) { _hovRowCache = hSwCache; anyHovChange = true; }
+
+                bool hSwSnap = _rectRowSnapTap.Contains(e.Location);
+                if (hSwSnap != _hovRowSnapTap) { _hovRowSnapTap = hSwSnap; anyHovChange = true; }
+
+                bool hSwPrio = _rectRowPriority.Contains(e.Location);
+                if (hSwPrio != _hovRowPriority) { _hovRowPriority = hSwPrio; anyHovChange = true; }
+
+                bool hTgm = _rectBtnToggleGameMode.Contains(e.Location);
+                if (hTgm != _hovToggleGameMode) { _hovToggleGameMode = hTgm; anyHovChange = true; }
             }
             else if (_currentTab == AppTab.CleanUp)
             {
@@ -720,8 +855,9 @@ namespace BlueStacks4FPSTweaker
             bool hUpdateBadge = (_isUpdateAvailable || _isDownloadingUpdate) && _rectUpdateBadge.Contains(e.Location);
             if (hUpdateBadge != _hovUpdateBadge) { _hovUpdateBadge = hUpdateBadge; anyHovChange = true; }
 
-            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
+            bool isClickable = _hovClose || _hovMin || _hovHome || _hovGameMode || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
                 (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
+                (_currentTab == AppTab.GameMode && (_hovRowExplorer || _hovRowDwm || _hovRowTimer || _hovRowCache || _hovRowSnapTap || _hovRowPriority || _hovToggleGameMode)) ||
                 (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
                 (_currentTab == AppTab.Settings && (_hovGpuCheck || _hovSaveSettings)) ||
                 (_currentTab == AppTab.About && (_hovBackDash || _hovCheckUpdates));
@@ -788,61 +924,73 @@ namespace BlueStacks4FPSTweaker
             float circleDiam = 48f;
             float circleX = 51f;
 
-            // 1. Home / Dashboard (Center Y = 80)
+            // 1. Home / Dashboard (Center Y = 76)
             if (_imgHome != null)
             {
                 if (_currentTab == AppTab.Dashboard)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 56f, circleDiam, circleDiam);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 56f, circleDiam, circleDiam);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 52f, circleDiam, circleDiam);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 52f, circleDiam, circleDiam);
                 }
                 else if (_hovHome)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 58f, 44f, 44f);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 54f, 44f, 44f);
                 }
-                e.Graphics.DrawImage(_imgHome, 62, 67, 26, 26);
+                e.Graphics.DrawImage(_imgHome, 62, 63, 26, 26);
             }
 
-            // 2. Clean Up (Center Y = 144)
+            // 2. Game Mode (Center Y = 138)
+            if (_currentTab == AppTab.GameMode)
+            {
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 114f, circleDiam, circleDiam);
+                e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 114f, circleDiam, circleDiam);
+            }
+            else if (_hovGameMode)
+            {
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 116f, 44f, 44f);
+            }
+            DrawGamepadIcon(e.Graphics, 75f, 138f, Color.White);
+
+            // 3. Clean Up (Center Y = 200)
             if (_imgTrash != null)
             {
                 if (_currentTab == AppTab.CleanUp)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 120f, circleDiam, circleDiam);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 120f, circleDiam, circleDiam);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 176f, circleDiam, circleDiam);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 176f, circleDiam, circleDiam);
                 }
                 else if (_hovTrash)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 122f, 44f, 44f);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 178f, 44f, 44f);
                 }
-                e.Graphics.DrawImage(_imgTrash, 62, 131, 26, 26);
+                e.Graphics.DrawImage(_imgTrash, 62, 187, 26, 26);
             }
 
-            // 3. Settings (Center Y = 208)
+            // 4. Settings (Center Y = 262)
             if (_currentTab == AppTab.Settings)
             {
-                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 184f, circleDiam, circleDiam);
-                e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 184f, circleDiam, circleDiam);
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 238f, circleDiam, circleDiam);
+                e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 238f, circleDiam, circleDiam);
             }
             else if (_hovSettings)
             {
-                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 186f, 44f, 44f);
+                e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 240f, 44f, 44f);
             }
-            DrawGearIcon(e.Graphics, 75f, 208f, 13f, Color.White);
+            DrawGearIcon(e.Graphics, 75f, 262f, 13f, Color.White);
 
-            // 4. About (Center Y = 272)
+            // 5. About (Center Y = 324)
             if (_imgInfo != null)
             {
                 if (_currentTab == AppTab.About)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 248f, circleDiam, circleDiam);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 248f, circleDiam, circleDiam);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), circleX, 300f, circleDiam, circleDiam);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), circleX, 300f, circleDiam, circleDiam);
                 }
                 else if (_hovInfo)
                 {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 250f, 44f, 44f);
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 53f, 302f, 44f, 44f);
                 }
-                e.Graphics.DrawImage(_imgInfo, 62, 259, 26, 26);
+                e.Graphics.DrawImage(_imgInfo, 62, 311, 26, 26);
             }
             // 5. Bloomex Logo Badge (Bottom of Left Sidebar, Center X = 75, Center Y = 420 - Static Branding Logo)
             if (_imgLogo != null)
@@ -913,6 +1061,10 @@ namespace BlueStacks4FPSTweaker
             if (_currentTab == AppTab.Dashboard)
             {
                 PaintDashboardTab(e);
+            }
+            else if (_currentTab == AppTab.GameMode)
+            {
+                PaintGameModeTab(e);
             }
             else if (_currentTab == AppTab.CleanUp)
             {
@@ -1137,6 +1289,245 @@ namespace BlueStacks4FPSTweaker
                 {
                     SizeF szA = e.Graphics.MeasureString("APPLY CHANGES", fApply);
                     e.Graphics.DrawString("APPLY CHANGES", fApply, b, _rectApply.X + (_rectApply.Width - szA.Width) / 2f, _rectApply.Y + (_rectApply.Height - szA.Height) / 2f);
+                }
+            }
+        }
+
+        private void PaintGameModeTab(PaintEventArgs e)
+        {
+            // 1. Header
+            using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Common Profile", fTitle, Brushes.White, 145, 48);
+            }
+            using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
+                {
+                    e.Graphics.DrawString("Low-latency gaming engine, zero shell interference & counter-strafing", fSub, sb, 145, 82);
+                }
+            }
+
+            // Global Hotkey Indicator Pill on top right of header
+            RectangleF hkRect = new RectangleF(615f, 54f, 120f, 24f);
+            using (GraphicsPath hkPath = StudioGraphics.CreateRoundedPath(hkRect, 12f))
+            {
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(50, ColorBorderPlum)))
+                {
+                    e.Graphics.FillPath(b, hkPath);
+                }
+                using (Pen p = new Pen(ColorNeonPurple, 1.2f))
+                {
+                    e.Graphics.DrawPath(p, hkPath);
+                }
+            }
+            using (Font fHk = FontManager.GetInter(11f, FontStyle.Bold, 600))
+            {
+                SizeF szHk = e.Graphics.MeasureString("CTRL+SHIFT+O", fHk);
+                e.Graphics.DrawString("CTRL+SHIFT+O", fHk, Brushes.White, hkRect.X + (hkRect.Width - szHk.Width) / 2f, hkRect.Y + (hkRect.Height - szHk.Height) / 2f);
+            }
+
+            // Card 1: Shell & Compositor (Left: 145, 116, 288, 238)
+            RectangleF c1Rect = new RectangleF(145f, 116f, 288f, 238f);
+            using (GraphicsPath c1Path = StudioGraphics.CreateRoundedPath(c1Rect, 34f))
+            {
+                using (LinearGradientBrush c1Brush = new LinearGradientBrush(c1Rect, Color.FromArgb(28, 6, 48), ColorBorderPlum, 135f))
+                {
+                    e.Graphics.FillPath(c1Brush, c1Path);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, c1Path);
+                }
+            }
+            using (Font fCardHead = FontManager.GetInter(16f, FontStyle.Bold, 700))
+            {
+                e.Graphics.DrawString("Shell & Compositor", fCardHead, Brushes.White, 168, 132);
+            }
+
+            DrawGameOptionRow(e.Graphics, 165f, 162f, "Disable Explorer", "Suspends shell to kill DPC lag", null, GameModeEngine.OptDisableExplorer, _hovRowExplorer);
+            DrawGameOptionRow(e.Graphics, 165f, 222f, "Disable DWM", "Bypasses compositing queue", null, GameModeEngine.OptDisableDwm, _hovRowDwm);
+            DrawGameOptionRow(e.Graphics, 165f, 282f, "0.5ms Timer", "Ultra-low microsecond frame pacing", null, GameModeEngine.OptTimerResolution, _hovRowTimer);
+
+            // Card 2: Engine & Input Tuning (Right: 450, 116, 288, 238)
+            RectangleF c2Rect = new RectangleF(450f, 116f, 288f, 238f);
+            using (GraphicsPath c2Path = StudioGraphics.CreateRoundedPath(c2Rect, 34f))
+            {
+                using (LinearGradientBrush c2Brush = new LinearGradientBrush(c2Rect, Color.FromArgb(28, 6, 48), ColorBorderPlum, 135f))
+                {
+                    e.Graphics.FillPath(c2Brush, c2Path);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, c2Path);
+                }
+            }
+            using (Font fCardHead = FontManager.GetInter(16f, FontStyle.Bold, 700))
+            {
+                e.Graphics.DrawString("Engine & Input Tuning", fCardHead, Brushes.White, 470, 132);
+            }
+
+            DrawGameOptionRow(e.Graphics, 470f, 162f, "Clean Cache", "Auto purge memory on launch", "CTRL+SHIFT+P", GameModeEngine.OptCleanCacheOnLaunch, _hovRowCache);
+            DrawGameOptionRow(e.Graphics, 470f, 222f, "Snap Tap", "A+D instant counter-strafing", "A+D", GameModeEngine.OptSnapTap, _hovRowSnapTap);
+            DrawGameOptionRow(e.Graphics, 470f, 282f, "High Priority", "Locks HD-Player.exe to High", "PRO", GameModeEngine.OptPriorityBoost, _hovRowPriority);
+
+            // Bottom Action Banner (145, 370, 593, 86)
+            RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 36f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
+                {
+                    e.Graphics.FillPath(lgb, botPath);
+                }
+            }
+
+            RectangleF statTitleArea = new RectangleF(170f, 384f, 315f, 24f);
+            RectangleF statDescArea = new RectangleF(170f, 410f, 315f, 38f);
+            using (StringFormat sfTitle = new StringFormat() { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap })
+            using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
+            {
+                string statusTitle = GameModeEngine.IsGameModeActive ? "Game Mode: Active" : "Game Mode: Standby";
+                e.Graphics.DrawString(statusTitle, fStatHead, Brushes.White, statTitleArea, sfTitle);
+            }
+            using (StringFormat sfDesc = new StringFormat() { Trimming = StringTrimming.EllipsisWord })
+            using (Font fStatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
+                {
+                    string statusDesc = GameModeEngine.IsGameModeActive
+                        ? "Ultra-low latency active • Explorer suspended • 0.5ms timer • Snap Tap running"
+                        : "Ready to launch ultra-latency gaming profile for BlueStacks 4.";
+                    e.Graphics.DrawString(statusDesc, fStatSub, sb, statDescArea, sfDesc);
+                }
+            }
+
+            // Master Action Button (Pure White non-hover, 24f pill radius)
+            RectangleF btnGmRect = new RectangleF(_rectBtnToggleGameMode.X, _rectBtnToggleGameMode.Y, _rectBtnToggleGameMode.Width, _rectBtnToggleGameMode.Height);
+            using (GraphicsPath bgp = StudioGraphics.CreateRoundedPath(btnGmRect, 24f))
+            {
+                Color btnCol = _hovToggleGameMode ? Color.FromArgb(240, 230, 255) : Color.White;
+                using (SolidBrush b = new SolidBrush(btnCol))
+                {
+                    e.Graphics.FillPath(b, bgp);
+                }
+                if (_hovToggleGameMode)
+                {
+                    using (Pen p = new Pen(ColorNeonPurple, 1.5f))
+                    {
+                        e.Graphics.DrawPath(p, bgp);
+                    }
+                }
+            }
+            string btnText = GameModeEngine.IsGameModeActive ? "STOP GAME MODE" : "START GAME MODE";
+            using (Font fBtn = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush b = new SolidBrush(ColorNeonPurple))
+                {
+                    SizeF szBtn = e.Graphics.MeasureString(btnText, fBtn);
+                    e.Graphics.DrawString(btnText, fBtn, b, _rectBtnToggleGameMode.X + (_rectBtnToggleGameMode.Width - szBtn.Width) / 2f, _rectBtnToggleGameMode.Y + (_rectBtnToggleGameMode.Height - szBtn.Height) / 2f);
+                }
+            }
+        }
+
+        private void DrawGameOptionRow(Graphics g, float x, float y, string title, string desc, string badgeText, bool isEnabled, bool isHovered)
+        {
+            if (isHovered)
+            {
+                RectangleF hovRect = new RectangleF(x - 6f, y - 4f, 260f, 48f);
+                using (GraphicsPath hp = StudioGraphics.CreateRoundedPath(hovRect, 12f))
+                {
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(30, Color.White)))
+                    {
+                        g.FillPath(hb, hp);
+                    }
+                }
+            }
+
+            using (Font fTitle = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
+            {
+                g.DrawString(title, fTitle, Brushes.White, x, y);
+            }
+
+            if (!string.IsNullOrEmpty(badgeText))
+            {
+                using (Font fBadge = FontManager.GetInter(9.5f, FontStyle.Bold, 600))
+                {
+                    SizeF szB = g.MeasureString(badgeText, fBadge);
+                    float bw = szB.Width + 10f;
+                    float bh = 16f;
+                    RectangleF badgeRect = new RectangleF(x + 215f - bw - 10f, y + 1f, bw, bh);
+                    using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(badgeRect, 8f))
+                    {
+                        using (SolidBrush b = new SolidBrush(Color.FromArgb(80, ColorNeonPurple)))
+                        {
+                            g.FillPath(b, bp);
+                        }
+                        using (Pen p = new Pen(ColorNeonPurple, 1f))
+                        {
+                            g.DrawPath(p, bp);
+                        }
+                    }
+                    g.DrawString(badgeText, fBadge, Brushes.White, badgeRect.X + (badgeRect.Width - szB.Width) / 2f, badgeRect.Y + (badgeRect.Height - szB.Height) / 2f);
+                }
+            }
+
+            using (Font fDesc = FontManager.GetInter(11f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(190, 180, 220)))
+                {
+                    g.DrawString(desc, fDesc, sb, x, y + 18f);
+                }
+            }
+
+            float swX = x + 215f;
+            float swY = y + 8f;
+            DrawToggleSwitch(g, swX, swY, isEnabled, isHovered);
+        }
+
+        private void DrawToggleSwitch(Graphics g, float x, float y, bool isOn, bool isHovered)
+        {
+            float w = 36f;
+            float h = 18f;
+            RectangleF swRect = new RectangleF(x, y, w, h);
+            using (GraphicsPath p = StudioGraphics.CreateRoundedPath(swRect, 9f))
+            {
+                Color fill = isOn ? ColorNeonPurple : Color.FromArgb(40, 12, 60);
+                using (SolidBrush b = new SolidBrush(fill))
+                {
+                    g.FillPath(b, p);
+                }
+                Color stroke = isOn ? Color.FromArgb(220, 120, 255) : ColorBorderPlum;
+                using (Pen sp = new Pen(stroke, 1.2f))
+                {
+                    g.DrawPath(sp, p);
+                }
+            }
+
+            float thumbDiam = 12f;
+            float thumbY = y + 3f;
+            float thumbX = isOn ? (x + w - thumbDiam - 3f) : (x + 3f);
+            using (SolidBrush tb = new SolidBrush(Color.White))
+            {
+                g.FillEllipse(tb, thumbX, thumbY, thumbDiam, thumbDiam);
+            }
+        }
+
+        private void DrawGamepadIcon(Graphics g, float cx, float cy, Color color)
+        {
+            using (Pen pen = new Pen(color, 2f))
+            {
+                RectangleF body = new RectangleF(cx - 13f, cy - 8f, 26f, 16f);
+                using (GraphicsPath gp = StudioGraphics.CreateRoundedPath(body, 5f))
+                {
+                    g.DrawPath(pen, gp);
+                }
+                g.DrawLine(pen, cx - 8f, cy - 3f, cx - 8f, cy + 3f);
+                g.DrawLine(pen, cx - 11f, cy, cx - 5f, cy);
+                using (SolidBrush sb = new SolidBrush(color))
+                {
+                    g.FillEllipse(sb, cx + 5f, cy - 4f, 3.5f, 3.5f);
+                    g.FillEllipse(sb, cx + 8.5f, cy - 0.5f, 3.5f, 3.5f);
+                    g.FillEllipse(sb, cx + 5f, cy + 3f, 3.5f, 3.5f);
                 }
             }
         }
