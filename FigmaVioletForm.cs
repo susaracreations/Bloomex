@@ -237,6 +237,8 @@ namespace BlueStacks4FPSTweaker
         private Image _imgCallout = null;
         private Image _imgHelpIcon = null;
         private Image _imgLogo = null;
+        private Image _imgBackground = null;
+        private Image _imgBannerCard = null;
 
         public FigmaVioletForm()
         {
@@ -296,6 +298,8 @@ namespace BlueStacks4FPSTweaker
                 _imgCallout = LoadResourceOrFile(asm, "CardCallout", @"assets\card-optimization-callout.png");
                 _imgHelpIcon = LoadResourceOrFile(asm, "CardHelpIcon", @"assets\card-optimization-help-icon.png");
                 _imgLogo = LoadResourceOrFile(asm, "AppLogoPng", "app_icon.png");
+                _imgBackground = LoadResourceOrFile(asm, "BackgroundPng", @"assets\background.png");
+                _imgBannerCard = LoadResourceOrFile(asm, "BannerCardPng", @"assets\banner_card.png");
             }
             catch { }
         }
@@ -329,7 +333,7 @@ namespace BlueStacks4FPSTweaker
 
         private void ApplyWindowCurves()
         {
-            Region = Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 49, 49));
+            Region = Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 120, 120));
         }
 
         private void ApplyDwmCorners()
@@ -741,11 +745,21 @@ namespace BlueStacks4FPSTweaker
             // border-radius: 49px; border: 2px #37005C solid
             // =========================================================================
             RectangleF bgRect = new RectangleF(1f, 1f, Width - 2f, Height - 2f);
-            using (GraphicsPath bgPath = StudioGraphics.CreateRoundedPath(bgRect, 49f))
+            using (GraphicsPath bgPath = StudioGraphics.CreateRoundedPath(bgRect, 60f))
             {
-                using (LinearGradientBrush lgb = new LinearGradientBrush(bgRect, Color.Black, ColorBorderPlum, 112f))
+                if (_imgBackground != null)
                 {
-                    e.Graphics.FillPath(lgb, bgPath);
+                    var oldClip = e.Graphics.Clip;
+                    e.Graphics.SetClip(bgPath, CombineMode.Intersect);
+                    e.Graphics.DrawImage(_imgBackground, 0, 0, Width, Height);
+                    e.Graphics.Clip = oldClip;
+                }
+                else
+                {
+                    using (LinearGradientBrush lgb = new LinearGradientBrush(bgRect, Color.Black, ColorBorderPlum, 112f))
+                    {
+                        e.Graphics.FillPath(lgb, bgPath);
+                    }
                 }
                 using (Pen p = new Pen(ColorBorderPlum, 2f))
                 {
@@ -758,7 +772,7 @@ namespace BlueStacks4FPSTweaker
             // top: 34px; left: 36px; width: 78px; height: 428px; background: #37005C; border-radius: 26px
             // =========================================================================
             RectangleF leftPillRect = new RectangleF(36f, 34f, 78f, 428f);
-            using (GraphicsPath lpPath = StudioGraphics.CreateRoundedPath(leftPillRect, 26f))
+            using (GraphicsPath lpPath = StudioGraphics.CreateRoundedPath(leftPillRect, 39f))
             {
                 using (SolidBrush b = new SolidBrush(ColorBorderPlum))
                 {
@@ -935,7 +949,7 @@ namespace BlueStacks4FPSTweaker
                 SizeF szVer = e.Graphics.MeasureString(_version, fVer);
                 float pillW = Math.Max(105f, szVer.Width + 18f);
                 RectangleF verRect = new RectangleF(midX + 115f, 95f, pillW, 18f);
-                using (GraphicsPath vp = StudioGraphics.CreateRoundedPath(verRect, 6f))
+                using (GraphicsPath vp = StudioGraphics.CreateRoundedPath(verRect, 9f))
                 {
                     using (LinearGradientBrush lgb = new LinearGradientBrush(verRect, ColorGradEnd, ColorNeonPurple, 0f))
                     {
@@ -945,39 +959,44 @@ namespace BlueStacks4FPSTweaker
                 e.Graphics.DrawString(_version, fVer, Brushes.White, verRect.X + (verRect.Width - szVer.Width) / 2f, verRect.Y + (verRect.Height - szVer.Height) / 2f);
             }
 
-            // 5. OPTIMIZATION BANNER CARD ("I GOT YOU!"):
+            // 5. OPTIMIZATION BANNER CARD:
             RectangleF bannerRect = new RectangleF(midX, 136f, 302f, 206f);
-            using (GraphicsPath bnp = StudioGraphics.CreateRoundedPath(bannerRect, 32f))
+            using (GraphicsPath bnp = StudioGraphics.CreateRoundedPath(bannerRect, 38f))
             {
-                using (LinearGradientBrush lgb = new LinearGradientBrush(bannerRect, ColorNeonPurple, Color.FromArgb(0, 113, 194), 117f))
+                var oldClip = e.Graphics.Clip;
+                e.Graphics.SetClip(bnp, CombineMode.Intersect);
+
+                if (_imgBannerCard != null)
                 {
-                    e.Graphics.FillPath(lgb, bnp);
+                    e.Graphics.DrawImage(_imgBannerCard, bannerRect.X, bannerRect.Y, bannerRect.Width, bannerRect.Height);
                 }
+                else
+                {
+                    using (LinearGradientBrush lgb = new LinearGradientBrush(bannerRect, ColorNeonPurple, Color.FromArgb(0, 113, 194), 117f))
+                    {
+                        e.Graphics.FillPath(lgb, bnp);
+                    }
+                    using (Font fSub = FontManager.GetInter(15f, FontStyle.Bold, 600))
+                    {
+                        e.Graphics.DrawString("Need To Optimize Your Blustacks 4\nEmulator by Unlocking 90+ Fps.", fSub, Brushes.White, midX + 22f, 157);
+                    }
+                    using (Font fGot = FontManager.GetInter(36f, FontStyle.Bold, 700))
+                    {
+                        e.Graphics.DrawString("I GOT YOU!", fGot, Brushes.White, midX + 22f, 224);
+                    }
+                }
+
+                e.Graphics.Clip = oldClip;
+
                 using (Pen p = new Pen(ColorBorderPlum, 2f))
                 {
                     e.Graphics.DrawPath(p, bnp);
                 }
-
-                var oldClip = e.Graphics.Clip;
-                e.Graphics.SetClip(bnp, CombineMode.Intersect);
-
-                using (Font fSub = FontManager.GetInter(15f, FontStyle.Bold, 600))
-                {
-                    e.Graphics.DrawString("Need To Optimize Your Blustacks 4\nEmulator by Unlocking 90+ Fps.", fSub, Brushes.White, midX + 22f, 157);
-                }
-
-                // Clean "I GOT YOU!" (No question mark, matching latest design)
-                using (Font fGot = FontManager.GetInter(36f, FontStyle.Bold, 700))
-                {
-                    e.Graphics.DrawString("I GOT YOU!", fGot, Brushes.White, midX + 22f, 224);
-                }
-
-                e.Graphics.Clip = oldClip;
             }
 
             // 6. BLUESTACKS CONTROL CARD (Bottom Left):
             RectangleF bsCardRect = new RectangleF(midX, 362f, 302f, 100f);
-            using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(bsCardRect, 32f))
+            using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(bsCardRect, 38f))
             {
                 using (SolidBrush b = new SolidBrush(ColorBorderPlum))
                 {
@@ -1003,7 +1022,7 @@ namespace BlueStacks4FPSTweaker
 
             // 7. RIGHT SIDE CARD (Outer Container):
             RectangleF rightOuterRect = new RectangleF(460f, 55f, 306f, 407f);
-            using (GraphicsPath rop = StudioGraphics.CreateRoundedPath(rightOuterRect, 49f))
+            using (GraphicsPath rop = StudioGraphics.CreateRoundedPath(rightOuterRect, 56f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(rightOuterRect, Color.Black, ColorBorderPlum, 90f))
                 {
@@ -1040,7 +1059,7 @@ namespace BlueStacks4FPSTweaker
 
             // 8. INNER GRADIENT CARD (REAL-SYNC EMULATOR HARDWARE SETTINGS):
             RectangleF gradCardRect = new RectangleF(482f, 245f, 262f, 193f);
-            using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gradCardRect, 49f))
+            using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gradCardRect, 52f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(gradCardRect, ColorGradStart, ColorGradEnd, 123f))
                 {
@@ -1051,7 +1070,7 @@ namespace BlueStacks4FPSTweaker
             // Interactive Hover Feedback on DPI, Display, RAM
             if (_hovDpi)
             {
-                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDpi.X, _rectDpi.Y, _rectDpi.Width, _rectDpi.Height), 12f))
+                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDpi.X, _rectDpi.Y, _rectDpi.Width, _rectDpi.Height), 18f))
                 {
                     using (SolidBrush hb = new SolidBrush(Color.FromArgb(50, Color.White))) { e.Graphics.FillPath(hb, dp); }
                     using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.2f)) { e.Graphics.DrawPath(p, dp); }
@@ -1059,7 +1078,7 @@ namespace BlueStacks4FPSTweaker
             }
             if (_hovDisplay)
             {
-                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDisplay.X, _rectDisplay.Y, _rectDisplay.Width, _rectDisplay.Height), 12f))
+                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDisplay.X, _rectDisplay.Y, _rectDisplay.Width, _rectDisplay.Height), 18f))
                 {
                     using (SolidBrush hb = new SolidBrush(Color.FromArgb(50, Color.White))) { e.Graphics.FillPath(hb, dp); }
                     using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.2f)) { e.Graphics.DrawPath(p, dp); }
@@ -1067,7 +1086,7 @@ namespace BlueStacks4FPSTweaker
             }
             if (_hovRam)
             {
-                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectRam.X, _rectRam.Y, _rectRam.Width, _rectRam.Height), 12f))
+                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectRam.X, _rectRam.Y, _rectRam.Width, _rectRam.Height), 18f))
                 {
                     using (SolidBrush hb = new SolidBrush(Color.FromArgb(50, Color.White))) { e.Graphics.FillPath(hb, dp); }
                     using (Pen p = new Pen(Color.FromArgb(200, 255, 255, 255), 1.2f)) { e.Graphics.DrawPath(p, dp); }
@@ -1137,7 +1156,7 @@ namespace BlueStacks4FPSTweaker
 
             // Bottom Action Banner (145, 370, 593, 86)
             RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
-            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 28f))
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 36f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
                 {
@@ -1184,7 +1203,7 @@ namespace BlueStacks4FPSTweaker
         private void DrawCleanActionCard(Graphics g, float x, float y, float w, float h, string title, string desc, string btnText, Rectangle btnRect, bool isHovered)
         {
             RectangleF cardRect = new RectangleF(x, y, w, h);
-            using (GraphicsPath cp = StudioGraphics.CreateRoundedPath(cardRect, 24f))
+            using (GraphicsPath cp = StudioGraphics.CreateRoundedPath(cardRect, 30f))
             {
                 using (LinearGradientBrush cb = new LinearGradientBrush(cardRect, Color.FromArgb(20, 5, 35), ColorBorderPlum, 135f))
                 {
@@ -1244,7 +1263,7 @@ namespace BlueStacks4FPSTweaker
 
             // Card 1: Dedicated GPU Settings (145, 116, 593, 118)
             RectangleF gpuCardRect = new RectangleF(145f, 116f, 593f, 118f);
-            using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gpuCardRect, 24f))
+            using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gpuCardRect, 30f))
             {
                 using (LinearGradientBrush cb = new LinearGradientBrush(gpuCardRect, Color.FromArgb(28, 6, 48), ColorBorderPlum, 135f))
                 {
@@ -1314,7 +1333,7 @@ namespace BlueStacks4FPSTweaker
 
             // Bottom Action Banner (145, 370, 593, 86)
             RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
-            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 28f))
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 36f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
                 {
@@ -1443,7 +1462,7 @@ namespace BlueStacks4FPSTweaker
 
             // Card 1: Emulator & System Profile (Left: 145, 116, 288, 238)
             RectangleF c1Rect = new RectangleF(145f, 116f, 288f, 238f);
-            using (GraphicsPath c1Path = StudioGraphics.CreateRoundedPath(c1Rect, 28f))
+            using (GraphicsPath c1Path = StudioGraphics.CreateRoundedPath(c1Rect, 34f))
             {
                 using (LinearGradientBrush c1Brush = new LinearGradientBrush(c1Rect, ColorNeonPurple, Color.FromArgb(0, 113, 194), 135f))
                 {
@@ -1483,7 +1502,7 @@ namespace BlueStacks4FPSTweaker
 
             // Card 2: Kernel & Registry Sync Health (Right: 450, 116, 288, 238)
             RectangleF c2Rect = new RectangleF(450f, 116f, 288f, 238f);
-            using (GraphicsPath c2Path = StudioGraphics.CreateRoundedPath(c2Rect, 28f))
+            using (GraphicsPath c2Path = StudioGraphics.CreateRoundedPath(c2Rect, 34f))
             {
                 using (LinearGradientBrush c2Brush = new LinearGradientBrush(c2Rect, Color.FromArgb(25, 5, 45), ColorBorderPlum, 135f))
                 {
@@ -1523,7 +1542,7 @@ namespace BlueStacks4FPSTweaker
 
             // Check for Updates Button on Card 2 (470, 314, 248, 30)
             RectangleF updBtnRect = new RectangleF(_rectBtnCheckUpdates.X, _rectBtnCheckUpdates.Y, _rectBtnCheckUpdates.Width, _rectBtnCheckUpdates.Height);
-            using (GraphicsPath ubp = StudioGraphics.CreateRoundedPath(updBtnRect, 14f))
+            using (GraphicsPath ubp = StudioGraphics.CreateRoundedPath(updBtnRect, 15f))
             {
                 Color btnCol = _hovCheckUpdates ? ColorNeonPurple : Color.FromArgb(70, 20, 100);
                 using (SolidBrush b = new SolidBrush(btnCol))
@@ -1544,7 +1563,7 @@ namespace BlueStacks4FPSTweaker
 
             // Bottom Banner: Developer & Features Banner (145, 370, 593, 86)
             RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
-            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 28f))
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 36f))
             {
                 using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
                 {
@@ -1625,7 +1644,7 @@ namespace BlueStacks4FPSTweaker
         private void DrawQuickSetPill(Graphics g, Rectangle r, string text, bool isSelected)
         {
             RectangleF rf = new RectangleF(r.X, r.Y, r.Width, r.Height);
-            using (GraphicsPath gp = StudioGraphics.CreateRoundedPath(rf, 7f))
+            using (GraphicsPath gp = StudioGraphics.CreateRoundedPath(rf, 9.5f))
             {
                 Color fill = isSelected ? ColorPresetActiveBg : ColorBorderPlum;
                 using (SolidBrush b = new SolidBrush(fill))
@@ -1650,7 +1669,7 @@ namespace BlueStacks4FPSTweaker
         private void DrawDropdownIndicator(Graphics g, float x, float y, bool isHovered)
         {
             RectangleF pill = new RectangleF(x, y, 16f, 16f);
-            using (GraphicsPath p = StudioGraphics.CreateRoundedPath(pill, 4f))
+            using (GraphicsPath p = StudioGraphics.CreateRoundedPath(pill, 8f))
             {
                 using (SolidBrush b = new SolidBrush(isHovered ? Color.FromArgb(80, Color.White) : Color.FromArgb(40, Color.Black)))
                 {
