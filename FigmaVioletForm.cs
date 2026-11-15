@@ -171,7 +171,6 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectIconTrash = new Rectangle(50, 120, 50, 48);
         private Rectangle _rectIconSettings = new Rectangle(50, 184, 50, 48);
         private Rectangle _rectIconInfo = new Rectangle(50, 248, 50, 48);
-        private Rectangle _rectBottomLogo = new Rectangle(50, 396, 50, 48);
 
         // Settings Page & Dedicated GPU Controls
         private bool _preferDedicatedGpu = true;
@@ -214,7 +213,6 @@ namespace BlueStacks4FPSTweaker
         private bool _hovTrash = false;
         private bool _hovSettings = false;
         private bool _hovInfo = false;
-        private bool _hovBottomLogo = false;
         private bool _hovHelp = false;
         private bool _hovStart = false;
         private bool _hovStop = false;
@@ -398,12 +396,6 @@ namespace BlueStacks4FPSTweaker
                     return;
                 }
                 if (_rectIconInfo.Contains(e.Location))
-                {
-                    _currentTab = AppTab.About;
-                    Invalidate();
-                    return;
-                }
-                if (_rectBottomLogo.Contains(e.Location))
                 {
                     _currentTab = AppTab.About;
                     Invalidate();
@@ -663,9 +655,6 @@ namespace BlueStacks4FPSTweaker
             bool hInfo = _rectIconInfo.Contains(e.Location);
             if (hInfo != _hovInfo) { _hovInfo = hInfo; anyHovChange = true; }
 
-            bool hBottomLogo = _rectBottomLogo.Contains(e.Location);
-            if (hBottomLogo != _hovBottomLogo) { _hovBottomLogo = hBottomLogo; anyHovChange = true; }
-
             if (_currentTab == AppTab.Dashboard)
             {
                 bool hHelp = _rectHelp.Contains(e.Location);
@@ -729,7 +718,7 @@ namespace BlueStacks4FPSTweaker
             bool hUpdateBadge = (_isUpdateAvailable || _isDownloadingUpdate) && _rectUpdateBadge.Contains(e.Location);
             if (hUpdateBadge != _hovUpdateBadge) { _hovUpdateBadge = hUpdateBadge; anyHovChange = true; }
 
-            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovSettings || _hovInfo || _hovBottomLogo || _hovUpdateBadge ||
+            bool isClickable = _hovClose || _hovMin || _hovHome || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
                 (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
                 (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
                 (_currentTab == AppTab.Settings && (_hovGpuCheck || _hovSaveSettings)) ||
@@ -843,22 +832,10 @@ namespace BlueStacks4FPSTweaker
                 }
                 e.Graphics.DrawImage(_imgInfo, 62, 259, 26, 26);
             }
-            // 5. Bloomex Logo Badge (Bottom of Left Sidebar, Center X = 75, Center Y = 420)
+            // 5. Bloomex Logo Badge (Bottom of Left Sidebar, Center X = 75, Center Y = 420 - Static Branding Logo)
             if (_imgLogo != null)
             {
-                if (_hovBottomLogo)
-                {
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(80, ColorNeonPurple)), 49f, 394f, 52f, 52f);
-                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.8f), 49f, 394f, 52f, 52f);
-                }
                 e.Graphics.DrawImage(_imgLogo, 51f, 396f, 48f, 48f);
-
-                if (_isUpdateAvailable)
-                {
-                    // Vibrant indicator dot to signal new release
-                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(50, 240, 130)), 86f, 396f, 12f, 12f);
-                    e.Graphics.DrawEllipse(new Pen(ColorBorderPlum, 1.5f), 86f, 396f, 12f, 12f);
-                }
             }
             else if (_imgGauge != null)
             {
