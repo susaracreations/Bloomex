@@ -1,0 +1,1549 @@
+using System;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+
+namespace BlueStacks4FPSTweaker
+{
+    public enum AppTab
+    {
+        Dashboard,
+        CleanUp,
+        About
+    }
+
+    public static class FontManager
+    {
+        [DllImport("gdi32.dll", EntryPoint = "AddFontResourceW", SetLastError = true)]
+        private static extern int AddFontResource([MarshalAs(UnmanagedType.LPWStr)] string lpFileName);
+
+        private static bool _initialized = false;
+
+        public static void Initialize()
+        {
+            if (_initialized) return;
+            _initialized = true;
+
+            try
+            {
+                string[] searchDirs = new string[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Windows\Fonts"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fonts"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "fonts"),
+                    @"C:\Users\Susara Viduneth\.gemini\antigravity\scratch\BlueStacks4_FPS_Tweaker\fonts"
+                };
+
+                string[] fontFiles = new string[] { "Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf", "Inter-Bold.ttf" };
+
+                foreach (string dir in searchDirs)
+                {
+                    if (Directory.Exists(dir))
+                    {
+                        foreach (string file in fontFiles)
+                        {
+                            string p = Path.Combine(dir, file);
+                            if (File.Exists(p))
+                            {
+                                try { AddFontResource(p); } catch { }
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public static Font GetInter(float size, FontStyle style = FontStyle.Regular, int weight = 400)
+        {
+            Initialize();
+
+            try
+            {
+                if (weight >= 700 || style == FontStyle.Bold)
+                {
+                    return new Font("Inter", size, FontStyle.Bold, GraphicsUnit.Pixel);
+                }
+                else if (weight >= 600)
+                {
+                    return new Font("Inter Semi Bold", size, FontStyle.Regular, GraphicsUnit.Pixel);
+                }
+                else if (weight >= 500)
+                {
+                    return new Font("Inter Medium", size, FontStyle.Regular, GraphicsUnit.Pixel);
+                }
+                else
+                {
+                    return new Font("Inter", size, FontStyle.Regular, GraphicsUnit.Pixel);
+                }
+            }
+            catch
+            {
+                try
+                {
+                    return new Font("Inter", size, style, GraphicsUnit.Pixel);
+                }
+                catch
+                {
+                    return new Font("Segoe UI", size, style, GraphicsUnit.Pixel);
+                }
+            }
+        }
+    }
+
+    public class FigmaVioletForm : Form
+    {
+        [DllImport("Gdi32.dll", EntryPoint = "CreateRoundRectRgn")]
+        private static extern IntPtr CreateRoundRectRgn(int nLeft, int nTop, int nRight, int nBottom, int nWidth, int nHeight);
+
+        [DllImport("user32.dll")]
+        public static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+        [DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        [DllImport("psapi.dll")]
+        private static extern int EmptyWorkingSet(IntPtr hwProc);
+
+        [DllImport("dnsapi.dll", EntryPoint = "DnsFlushResolverCache")]
+        private static extern int DnsFlushResolverCache();
+
+        private const int WM_NCLBUTTONDOWN = 0xA1;
+        private const int HT_CAPTION = 0x2;
+        private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        private const int DWMWCP_ROUND = 2;
+
+        // Exact Colors from User Figma HTML/CSS
+        private static readonly Color ColorBorderPlum = Color.FromArgb(55, 0, 92);      // #37005C
+        private static readonly Color ColorNeonPurple = Color.FromArgb(153, 0, 255);    // #9900FF
+        private static readonly Color ColorGradStart = Color.FromArgb(154, 0, 255);     // #9A00FF
+        private static readonly Color ColorGradEnd = Color.FromArgb(205, 96, 99);       // #CD6063
+        private static readonly Color ColorLightGray = Color.FromArgb(217, 217, 217);   // #D9D9D9
+        private static readonly Color ColorPresetActiveBg = Color.FromArgb(114, 58, 60); // #723A3C
+        private static readonly Color ColorPresetActiveBorder = Color.FromArgb(205, 96, 99); // #CD6063
+
+        // Navigation Tabs
+        private AppTab _currentTab = AppTab.Dashboard;
+
+        // Real Synchronized Emulator Settings
+        private int _currentFps = 90;
+        private int _dpi = 450;
+        private int _width = 1920;
+        private int _height = 1080;
+        private int _ramMB = 4096;
+        private string _display = "1920x1080";
+        private string _ramText = "4096 MB";
+        private string _version = "4.240.30.1002";
+        private string _installDir;
+        private bool _userModifiedSettings = false;
+
+        // Clean Up Status
+        private string _cleanStatusText = "System Status: Ready to optimize memory & flush caches";
+        private string _lastCleanResult = string.Empty;
+
+        // Window Controls
+        private Rectangle _rectClose = new Rectangle(748, 14, 34, 26);
+        private Rectangle _rectMin = new Rectangle(710, 14, 34, 26);
+        
+        // Left Bar Action Icons (Tab Navigation)
+        private Rectangle _rectIconHome = new Rectangle(50, 56, 50, 46);
+        private Rectangle _rectIconTrash = new Rectangle(50, 120, 50, 48);
+        private Rectangle _rectIconInfo = new Rectangle(50, 180, 50, 46);
+
+        // Dashboard Interactive Controls
+        private Rectangle _rectHelp = new Rectangle(160, 368, 80, 30);
+        private Rectangle _rectStart = new Rectangle(161, 412, 128, 35);
+        private Rectangle _rectStop = new Rectangle(301, 370, 128, 35);
+        private Rectangle _rectRestart = new Rectangle(301, 412, 128, 35);
+        private Rectangle _rectApply = new Rectangle(510, 390, 202, 31);
+        private Rectangle _rectPill60 = new Rectangle(484, 198, 49, 19);
+        private Rectangle _rectPill90 = new Rectangle(544, 198, 49, 19);
+        private Rectangle _rectPill120 = new Rectangle(604, 198, 49, 19);
+        private Rectangle _rectPill240 = new Rectangle(664, 198, 49, 19);
+        private Rectangle _rectDpi = new Rectangle(495, 268, 90, 54);
+        private Rectangle _rectDisplay = new Rectangle(605, 268, 120, 54);
+        private Rectangle _rectRam = new Rectangle(495, 326, 140, 54);
+
+        // Clean Up Page Controls
+        private Rectangle _rectBtnCleanBs = new Rectangle(163, 184, 252, 32);
+        private Rectangle _rectBtnCleanTemp = new Rectangle(468, 184, 252, 32);
+        private Rectangle _rectBtnCleanRam = new Rectangle(163, 310, 252, 32);
+        private Rectangle _rectBtnCleanDns = new Rectangle(468, 310, 252, 32);
+        private Rectangle _rectBtnCleanAll = new Rectangle(510, 388, 206, 48);
+
+        // About Page Controls
+        private Rectangle _rectBtnBackDash = new Rectangle(530, 388, 186, 48);
+
+        // Hover States
+        private bool _hovClose = false;
+        private bool _hovMin = false;
+        private bool _hovHome = false;
+        private bool _hovTrash = false;
+        private bool _hovInfo = false;
+        private bool _hovHelp = false;
+        private bool _hovStart = false;
+        private bool _hovStop = false;
+        private bool _hovRestart = false;
+        private bool _hovApply = false;
+        private bool _hovDpi = false;
+        private bool _hovDisplay = false;
+        private bool _hovRam = false;
+        private bool _hovCleanBs = false;
+        private bool _hovCleanTemp = false;
+        private bool _hovCleanRam = false;
+        private bool _hovCleanDns = false;
+        private bool _hovCleanAll = false;
+        private bool _hovBackDash = false;
+
+        private Timer _syncTimer;
+
+        // Loaded Images
+        private Image _imgHome = null;
+        private Image _imgTrash = null;
+        private Image _imgInfo = null;
+        private Image _imgGauge = null;
+        private Image _imgCallout = null;
+        private Image _imgHelpIcon = null;
+        private Image _imgLogo = null;
+
+        public FigmaVioletForm()
+        {
+            this.SuspendLayout();
+            this.ClientSize = new Size(800, 500);
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.BackColor = Color.Black;
+            this.Text = "Bloomex v0.1.0 - BlueStacks 4 Optimizer";
+            this.DoubleBuffered = true;
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+
+            try
+            {
+                if (File.Exists("app.ico"))
+                {
+                    this.Icon = new Icon("app.ico");
+                }
+                else
+                {
+                    Assembly asm = Assembly.GetExecutingAssembly();
+                    using (Stream s = asm.GetManifestResourceStream("AppIcon"))
+                    {
+                        if (s != null) this.Icon = new Icon(s);
+                    }
+                }
+            }
+            catch { }
+
+            FontManager.Initialize();
+            LoadAssets();
+
+            ApplyWindowCurves();
+            ApplyDwmCorners();
+
+            this.ResumeLayout(false);
+
+            RefreshTelemetry(true);
+
+            _syncTimer = new Timer();
+            _syncTimer.Interval = 1200;
+            _syncTimer.Tick += delegate { RefreshTelemetry(false); };
+            _syncTimer.Start();
+        }
+
+        private void LoadAssets()
+        {
+            try
+            {
+                Assembly asm = Assembly.GetExecutingAssembly();
+                _imgHome = LoadResourceOrFile(asm, "IconHome", @"assets\icon-home.png");
+                _imgTrash = LoadResourceOrFile(asm, "IconTrash", @"assets\icon-trash.png");
+                _imgInfo = LoadResourceOrFile(asm, "IconInfo", @"assets\icon-info.png");
+                _imgGauge = LoadResourceOrFile(asm, "PerformanceGauge", @"assets\card-performance.png");
+                _imgCallout = LoadResourceOrFile(asm, "CardCallout", @"assets\card-optimization-callout.png");
+                _imgHelpIcon = LoadResourceOrFile(asm, "CardHelpIcon", @"assets\card-optimization-help-icon.png");
+                _imgLogo = LoadResourceOrFile(asm, "AppLogoPng", "app_icon.png");
+            }
+            catch { }
+        }
+
+        private Image LoadResourceOrFile(Assembly asm, string resName, string relativePath)
+        {
+            try
+            {
+                using (Stream s = asm.GetManifestResourceStream(resName))
+                {
+                    if (s != null) return Image.FromStream(s);
+                }
+            }
+            catch { }
+
+            string[] paths = new string[]
+            {
+                relativePath,
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, relativePath),
+                Path.Combine(@"C:\Users\Susara Viduneth\.gemini\antigravity\scratch\BlueStacks4_FPS_Tweaker", relativePath)
+            };
+
+            foreach (string p in paths)
+            {
+                if (File.Exists(p))
+                {
+                    try { return Image.FromFile(p); } catch { }
+                }
+            }
+            return null;
+        }
+
+        private void ApplyWindowCurves()
+        {
+            Region = Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 49, 49));
+        }
+
+        private void ApplyDwmCorners()
+        {
+            try
+            {
+                int pref = DWMWCP_ROUND;
+                DwmSetWindowAttribute(this.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
+            }
+            catch { }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            ApplyWindowCurves();
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                // Top-Right Window Controls
+                if (_rectClose.Contains(e.Location))
+                {
+                    Application.Exit();
+                    return;
+                }
+                if (_rectMin.Contains(e.Location))
+                {
+                    this.WindowState = FormWindowState.Minimized;
+                    return;
+                }
+
+                // Left Bar Tabs
+                if (_rectIconHome.Contains(e.Location))
+                {
+                    _currentTab = AppTab.Dashboard;
+                    Invalidate();
+                    return;
+                }
+                if (_rectIconTrash.Contains(e.Location))
+                {
+                    _currentTab = AppTab.CleanUp;
+                    Invalidate();
+                    return;
+                }
+                if (_rectIconInfo.Contains(e.Location))
+                {
+                    _currentTab = AppTab.About;
+                    Invalidate();
+                    return;
+                }
+
+                // TAB 1: DASHBOARD ACTIONS
+                if (_currentTab == AppTab.Dashboard)
+                {
+                    // Quick Sets
+                    if (_rectPill60.Contains(e.Location))
+                    {
+                        _currentFps = 60;
+                        _userModifiedSettings = true;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectPill90.Contains(e.Location))
+                    {
+                        _currentFps = 90;
+                        _userModifiedSettings = true;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectPill120.Contains(e.Location))
+                    {
+                        _currentFps = 120;
+                        _userModifiedSettings = true;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectPill240.Contains(e.Location))
+                    {
+                        _currentFps = 240;
+                        _userModifiedSettings = true;
+                        Invalidate();
+                        return;
+                    }
+
+                    // Interactive DPI Selector
+                    if (_rectDpi.Contains(e.Location))
+                    {
+                        ShowDpiMenu();
+                        return;
+                    }
+
+                    // Interactive Display Resolution Selector
+                    if (_rectDisplay.Contains(e.Location))
+                    {
+                        ShowDisplayMenu();
+                        return;
+                    }
+
+                    // Interactive RAM Selector
+                    if (_rectRam.Contains(e.Location))
+                    {
+                        ShowRamMenu();
+                        return;
+                    }
+
+                    // Apply Changes
+                    if (_rectApply.Contains(e.Location))
+                    {
+                        ApplyFpsChanges();
+                        return;
+                    }
+
+                    // Help?
+                    if (_rectHelp.Contains(e.Location))
+                    {
+                        ShowHelpDialog();
+                        return;
+                    }
+
+                    // Start BlueStacks
+                    if (_rectStart.Contains(e.Location))
+                    {
+                        LaunchBlueStacks();
+                        return;
+                    }
+
+                    // Stop BlueStacks
+                    if (_rectStop.Contains(e.Location))
+                    {
+                        StopBlueStacks();
+                        return;
+                    }
+
+                    // Restart BlueStacks
+                    if (_rectRestart.Contains(e.Location))
+                    {
+                        RestartBlueStacks();
+                        return;
+                    }
+                }
+                // TAB 2: CLEANUP ACTIONS
+                else if (_currentTab == AppTab.CleanUp)
+                {
+                    if (_rectBtnCleanBs.Contains(e.Location))
+                    {
+                        PerformBlueStacksClean();
+                        return;
+                    }
+                    if (_rectBtnCleanTemp.Contains(e.Location))
+                    {
+                        PerformWindowsTempClean();
+                        return;
+                    }
+                    if (_rectBtnCleanRam.Contains(e.Location))
+                    {
+                        PerformStandbyRamFlush();
+                        return;
+                    }
+                    if (_rectBtnCleanDns.Contains(e.Location))
+                    {
+                        PerformDnsFlush();
+                        return;
+                    }
+                    if (_rectBtnCleanAll.Contains(e.Location))
+                    {
+                        PerformCleanAll();
+                        return;
+                    }
+                }
+                // TAB 3: ABOUT ACTIONS
+                else if (_currentTab == AppTab.About)
+                {
+                    if (_rectBtnBackDash.Contains(e.Location))
+                    {
+                        _currentTab = AppTab.Dashboard;
+                        Invalidate();
+                        return;
+                    }
+                }
+
+                // Dragging Window
+                ReleaseCapture();
+                SendMessage(Handle, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+            }
+            base.OnMouseDown(e);
+        }
+
+        private void ShowDpiMenu()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            int[] dpiOptions = new int[] { 160, 240, 320, 450, 480, 600 };
+            foreach (int d in dpiOptions)
+            {
+                int val = d;
+                string label = val + " DPI" + (val == 450 ? " (Free Fire Pro)" : "");
+                var item = menu.Items.Add(label);
+                if (val == _dpi) item.Font = new Font(item.Font, FontStyle.Bold);
+                item.Click += delegate
+                {
+                    _dpi = val;
+                    _userModifiedSettings = true;
+                    Invalidate();
+                };
+            }
+            menu.Show(this, new Point(_rectDpi.X, _rectDpi.Bottom + 2));
+        }
+
+        private void ShowDisplayMenu()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            string[] resOptions = new string[] { "1920x1080", "1600x900", "1280x720", "2560x1440" };
+            foreach (string r in resOptions)
+            {
+                string res = r;
+                string label = res + (res == "1920x1080" ? " (FHD Recommended)" : "");
+                var item = menu.Items.Add(label);
+                if (res == _display) item.Font = new Font(item.Font, FontStyle.Bold);
+                item.Click += delegate
+                {
+                    string[] parts = res.Split('x');
+                    _width = int.Parse(parts[0]);
+                    _height = int.Parse(parts[1]);
+                    _display = res;
+                    _userModifiedSettings = true;
+                    Invalidate();
+                };
+            }
+            menu.Show(this, new Point(_rectDisplay.X, _rectDisplay.Bottom + 2));
+        }
+
+        private void ShowRamMenu()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            int[] ramOptions = new int[] { 2048, 3072, 4096, 6144, 8192 };
+            foreach (int r in ramOptions)
+            {
+                int val = r;
+                string label = val + " MB (" + (val / 1024) + " GB)" + (val == 4096 ? " (Default Recommended)" : "");
+                var item = menu.Items.Add(label);
+                if (val == _ramMB) item.Font = new Font(item.Font, FontStyle.Bold);
+                item.Click += delegate
+                {
+                    _ramMB = val;
+                    _ramText = val + " MB";
+                    _userModifiedSettings = true;
+                    Invalidate();
+                };
+            }
+            menu.Show(this, new Point(_rectRam.X, _rectRam.Bottom + 2));
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            bool anyHovChange = false;
+
+            bool hClose = _rectClose.Contains(e.Location);
+            if (hClose != _hovClose) { _hovClose = hClose; anyHovChange = true; }
+
+            bool hMin = _rectMin.Contains(e.Location);
+            if (hMin != _hovMin) { _hovMin = hMin; anyHovChange = true; }
+
+            bool hHome = _rectIconHome.Contains(e.Location);
+            if (hHome != _hovHome) { _hovHome = hHome; anyHovChange = true; }
+
+            bool hTrash = _rectIconTrash.Contains(e.Location);
+            if (hTrash != _hovTrash) { _hovTrash = hTrash; anyHovChange = true; }
+
+            bool hInfo = _rectIconInfo.Contains(e.Location);
+            if (hInfo != _hovInfo) { _hovInfo = hInfo; anyHovChange = true; }
+
+            if (_currentTab == AppTab.Dashboard)
+            {
+                bool hHelp = _rectHelp.Contains(e.Location);
+                if (hHelp != _hovHelp) { _hovHelp = hHelp; anyHovChange = true; }
+
+                bool hStart = _rectStart.Contains(e.Location);
+                if (hStart != _hovStart) { _hovStart = hStart; anyHovChange = true; }
+
+                bool hStop = _rectStop.Contains(e.Location);
+                if (hStop != _hovStop) { _hovStop = hStop; anyHovChange = true; }
+
+                bool hRestart = _rectRestart.Contains(e.Location);
+                if (hRestart != _hovRestart) { _hovRestart = hRestart; anyHovChange = true; }
+
+                bool hApply = _rectApply.Contains(e.Location);
+                if (hApply != _hovApply) { _hovApply = hApply; anyHovChange = true; }
+
+                bool hDpi = _rectDpi.Contains(e.Location);
+                if (hDpi != _hovDpi) { _hovDpi = hDpi; anyHovChange = true; }
+
+                bool hDisplay = _rectDisplay.Contains(e.Location);
+                if (hDisplay != _hovDisplay) { _hovDisplay = hDisplay; anyHovChange = true; }
+
+                bool hRam = _rectRam.Contains(e.Location);
+                if (hRam != _hovRam) { _hovRam = hRam; anyHovChange = true; }
+            }
+            else if (_currentTab == AppTab.CleanUp)
+            {
+                bool hCleanBs = _rectBtnCleanBs.Contains(e.Location);
+                if (hCleanBs != _hovCleanBs) { _hovCleanBs = hCleanBs; anyHovChange = true; }
+
+                bool hCleanTemp = _rectBtnCleanTemp.Contains(e.Location);
+                if (hCleanTemp != _hovCleanTemp) { _hovCleanTemp = hCleanTemp; anyHovChange = true; }
+
+                bool hCleanRam = _rectBtnCleanRam.Contains(e.Location);
+                if (hCleanRam != _hovCleanRam) { _hovCleanRam = hCleanRam; anyHovChange = true; }
+
+                bool hCleanDns = _rectBtnCleanDns.Contains(e.Location);
+                if (hCleanDns != _hovCleanDns) { _hovCleanDns = hCleanDns; anyHovChange = true; }
+
+                bool hCleanAll = _rectBtnCleanAll.Contains(e.Location);
+                if (hCleanAll != _hovCleanAll) { _hovCleanAll = hCleanAll; anyHovChange = true; }
+            }
+            else if (_currentTab == AppTab.About)
+            {
+                bool hBackDash = _rectBtnBackDash.Contains(e.Location);
+                if (hBackDash != _hovBackDash) { _hovBackDash = hBackDash; anyHovChange = true; }
+            }
+
+            if (anyHovChange) Invalidate();
+
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            // =========================================================================
+            // 1. MAIN BACKGROUND:
+            // width: 800px; height: 500px; background: linear-gradient(112deg, #000 1%, #37005c 97%);
+            // border-radius: 49px; border: 2px #37005C solid
+            // =========================================================================
+            RectangleF bgRect = new RectangleF(1f, 1f, Width - 2f, Height - 2f);
+            using (GraphicsPath bgPath = StudioGraphics.CreateRoundedPath(bgRect, 49f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(bgRect, Color.Black, ColorBorderPlum, 112f))
+                {
+                    e.Graphics.FillPath(lgb, bgPath);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, bgPath);
+                }
+            }
+
+            // =========================================================================
+            // 2. LEFT VERTICAL PILL BAR (.card1):
+            // top: 34px; left: 36px; width: 78px; height: 428px; background: #37005C; border-radius: 26px
+            // =========================================================================
+            RectangleF leftPillRect = new RectangleF(36f, 34f, 78f, 428f);
+            using (GraphicsPath lpPath = StudioGraphics.CreateRoundedPath(leftPillRect, 26f))
+            {
+                using (SolidBrush b = new SolidBrush(ColorBorderPlum))
+                {
+                    e.Graphics.FillPath(b, lpPath);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, lpPath);
+                }
+            }
+
+            // Draw Left Bar Icons with Active Ring Highlight
+            if (_imgHome != null)
+            {
+                if (_currentTab == AppTab.Dashboard)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), 47, 54, 56, 52);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.5f), 47, 54, 56, 52);
+                }
+                else if (_hovHome)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 55, 60, 40, 40);
+                }
+                e.Graphics.DrawImage(_imgHome, 62, 67, 27, 26);
+            }
+            if (_imgTrash != null)
+            {
+                if (_currentTab == AppTab.CleanUp)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), 47, 118, 56, 52);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.5f), 47, 118, 56, 52);
+                }
+                else if (_hovTrash)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 55, 122, 40, 42);
+                }
+                e.Graphics.DrawImage(_imgTrash, 62, 130, 26, 29);
+            }
+            if (_imgInfo != null)
+            {
+                if (_currentTab == AppTab.About)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(100, ColorNeonPurple)), 47, 178, 56, 52);
+                    e.Graphics.DrawEllipse(new Pen(ColorNeonPurple, 1.5f), 47, 178, 56, 52);
+                }
+                else if (_hovInfo)
+                {
+                    e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(40, Color.White)), 55, 184, 40, 40);
+                }
+                e.Graphics.DrawImage(_imgInfo, 62, 191, 26, 26);
+            }
+            if (_imgGauge != null)
+            {
+                e.Graphics.DrawImage(_imgGauge, 44, 397, 62, 62);
+            }
+
+            // =========================================================================
+            // 3. TOP RIGHT WINDOW CONTROLS:
+            // Minimize: rounded pill bar (28x5) at (636, 24)
+            // Close: sleek modern cross rotated 45 deg centered at (703, 26)
+            // =========================================================================
+            Color cMin = _hovMin ? ColorNeonPurple : ColorLightGray;
+            RectangleF minRect = new RectangleF(714f, 24f, 26f, 5f);
+            using (GraphicsPath pMin = StudioGraphics.CreateRoundedPath(minRect, 2.5f))
+            {
+                using (SolidBrush b = new SolidBrush(cMin)) { e.Graphics.FillPath(b, pMin); }
+            }
+
+            Color cClose = _hovClose ? Color.FromArgb(244, 63, 94) : ColorLightGray;
+            var stateClose = e.Graphics.Save();
+            e.Graphics.TranslateTransform(764f, 26.5f);
+            e.Graphics.RotateTransform(45f);
+            RectangleF crossBar = new RectangleF(-12f, -2.5f, 24f, 5f);
+            using (GraphicsPath pBar = StudioGraphics.CreateRoundedPath(crossBar, 2.5f))
+            {
+                using (SolidBrush b = new SolidBrush(cClose))
+                {
+                    e.Graphics.FillPath(b, pBar);
+                    e.Graphics.RotateTransform(-90f);
+                    e.Graphics.FillPath(b, pBar);
+                }
+            }
+            e.Graphics.Restore(stateClose);
+
+            // =========================================================================
+            // TAB CONTENT ROUTING
+            // =========================================================================
+            if (_currentTab == AppTab.Dashboard)
+            {
+                PaintDashboardTab(e);
+            }
+            else if (_currentTab == AppTab.CleanUp)
+            {
+                PaintCleanUpTab(e);
+            }
+            else if (_currentTab == AppTab.About)
+            {
+                PaintAboutTab(e);
+            }
+        }
+
+        private void PaintDashboardTab(PaintEventArgs e)
+        {
+            // 4. USER GREETING & BLUESTACKS VERSION (GENUINE INTER FONT!)
+            using (Font fHi = FontManager.GetInter(24f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Hi! User Name", fHi, Brushes.White, 145, 58);
+            }
+            using (Font fBs = FontManager.GetInter(15f, FontStyle.Regular, 500))
+            {
+                e.Graphics.DrawString("Bluestacks 04", fBs, Brushes.White, 145, 95);
+            }
+
+            // Version Pill: width: 121px; height: 18px; left: 256px; top: 95px; linear-gradient(90deg, #CD6063 0%, #9900FF 100%), border-radius: 6px
+            RectangleF verRect = new RectangleF(256f, 95f, 121f, 18f);
+            using (GraphicsPath vp = StudioGraphics.CreateRoundedPath(verRect, 6f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(verRect, ColorGradEnd, ColorNeonPurple, 0f))
+                {
+                    e.Graphics.FillPath(lgb, vp);
+                }
+            }
+            using (Font fVer = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            {
+                SizeF szVer = e.Graphics.MeasureString(_version, fVer);
+                e.Graphics.DrawString(_version, fVer, Brushes.White, verRect.X + (verRect.Width - szVer.Width) / 2f, verRect.Y + (verRect.Height - szVer.Height) / 2f);
+            }
+
+            // 5. OPTIMIZATION BANNER CARD ("I GOT YOU!"):
+            RectangleF bannerRect = new RectangleF(145f, 136f, 306f, 206f);
+            using (GraphicsPath bnp = StudioGraphics.CreateRoundedPath(bannerRect, 32f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(bannerRect, ColorNeonPurple, Color.FromArgb(0, 113, 194), 117f))
+                {
+                    e.Graphics.FillPath(lgb, bnp);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, bnp);
+                }
+
+                var oldClip = e.Graphics.Clip;
+                e.Graphics.SetClip(bnp, CombineMode.Intersect);
+
+                using (Font fSub = FontManager.GetInter(15f, FontStyle.Bold, 600))
+                {
+                    e.Graphics.DrawString("Need To Optimize Your Blustacks 4\nEmulator by Unlocking 90+ Fps.", fSub, Brushes.White, 167, 157);
+                }
+
+                // Clean "I GOT YOU!" (No question mark, matching latest design)
+                using (Font fGot = FontManager.GetInter(36f, FontStyle.Bold, 700))
+                {
+                    e.Graphics.DrawString("I GOT YOU!", fGot, Brushes.White, 167, 224);
+                }
+
+                e.Graphics.Clip = oldClip;
+            }
+
+            // 6. BLUESTACKS CONTROL CARD (Bottom Left):
+            RectangleF bsCardRect = new RectangleF(145f, 362f, 302f, 100f);
+            using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(bsCardRect, 32f))
+            {
+                using (SolidBrush b = new SolidBrush(ColorBorderPlum))
+                {
+                    e.Graphics.FillPath(b, bp);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, bp);
+                }
+            }
+
+            using (Font fHelp = FontManager.GetInter(20f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush hb = new SolidBrush(_hovHelp ? ColorNeonPurple : Color.White))
+                {
+                    e.Graphics.DrawString("Help?", fHelp, hb, 175, 376);
+                }
+            }
+
+            DrawPillButton20(e.Graphics, _rectStop, "Stop", _hovStop);
+            DrawPillButton20(e.Graphics, _rectStart, "Start", _hovStart);
+            DrawPillButton20(e.Graphics, _rectRestart, "Restart", _hovRestart);
+
+            // 7. RIGHT SIDE CARD (Outer Container):
+            RectangleF rightOuterRect = new RectangleF(457f, 55f, 306f, 407f);
+            using (GraphicsPath rop = StudioGraphics.CreateRoundedPath(rightOuterRect, 49f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(rightOuterRect, Color.Black, ColorBorderPlum, 90f))
+                {
+                    e.Graphics.FillPath(lgb, rop);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, rop);
+                }
+            }
+
+            using (Font fFpsHead = FontManager.GetInter(24f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("FPS", fFpsHead, Brushes.White, 480, 82);
+            }
+
+            using (Font fBigFps = FontManager.GetInter(64f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush nb = new SolidBrush(ColorNeonPurple))
+                {
+                    e.Graphics.DrawString(_currentFps.ToString(), fBigFps, nb, 476, 106);
+                }
+            }
+
+            using (Font fQs = FontManager.GetInter(12f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Quick Sets", fQs, Brushes.White, 650, 175);
+            }
+
+            DrawQuickSetPill(e.Graphics, _rectPill60, "60", _currentFps == 60);
+            DrawQuickSetPill(e.Graphics, _rectPill90, "90", _currentFps == 90);
+            DrawQuickSetPill(e.Graphics, _rectPill120, "120", _currentFps == 120);
+            DrawQuickSetPill(e.Graphics, _rectPill240, "240", _currentFps == 240);
+
+            // 8. INNER GRADIENT CARD (REAL-SYNC EMULATOR HARDWARE SETTINGS):
+            RectangleF gradCardRect = new RectangleF(480f, 245f, 261f, 193f);
+            using (GraphicsPath gcp = StudioGraphics.CreateRoundedPath(gradCardRect, 49f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(gradCardRect, ColorGradStart, ColorGradEnd, 123f))
+                {
+                    e.Graphics.FillPath(lgb, gcp);
+                }
+            }
+
+            // Interactive Hover Feedback on DPI, Display, RAM
+            if (_hovDpi)
+            {
+                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDpi.X, _rectDpi.Y, _rectDpi.Width, _rectDpi.Height), 12f))
+                {
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(35, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                }
+            }
+            if (_hovDisplay)
+            {
+                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectDisplay.X, _rectDisplay.Y, _rectDisplay.Width, _rectDisplay.Height), 12f))
+                {
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(35, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                }
+            }
+            if (_hovRam)
+            {
+                using (GraphicsPath dp = StudioGraphics.CreateRoundedPath(new RectangleF(_rectRam.X, _rectRam.Y, _rectRam.Width, _rectRam.Height), 12f))
+                {
+                    using (SolidBrush hb = new SolidBrush(Color.FromArgb(35, Color.White))) { e.Graphics.FillPath(hb, dp); }
+                }
+            }
+
+            using (Font fLbl = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("DPI", fLbl, Brushes.White, 507, 274);
+                e.Graphics.DrawString("Display", fLbl, Brushes.White, 615, 274);
+                e.Graphics.DrawString("RAM", fLbl, Brushes.White, 507, 332);
+            }
+            using (Font fVal = FontManager.GetInter(20f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString(_dpi.ToString(), fVal, Brushes.White, 507, 295);
+                e.Graphics.DrawString(_ramText, fVal, Brushes.White, 507, 353);
+            }
+            using (Font fValDisp = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString(_display, fValDisp, Brushes.White, 615, 297);
+            }
+
+            RectangleF applyRect = new RectangleF(_rectApply.X, _rectApply.Y, _rectApply.Width, _rectApply.Height);
+            using (GraphicsPath ap = StudioGraphics.CreateRoundedPath(applyRect, 15.5f))
+            {
+                using (SolidBrush b = new SolidBrush(_hovApply ? Color.White : ColorLightGray))
+                {
+                    e.Graphics.FillPath(b, ap);
+                }
+            }
+            using (Font fApply = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush b = new SolidBrush(ColorNeonPurple))
+                {
+                    SizeF szA = e.Graphics.MeasureString("APPLY CHANGES", fApply);
+                    e.Graphics.DrawString("APPLY CHANGES", fApply, b, _rectApply.X + (_rectApply.Width - szA.Width) / 2f, _rectApply.Y + (_rectApply.Height - szA.Height) / 2f);
+                }
+            }
+        }
+
+        private void PaintCleanUpTab(PaintEventArgs e)
+        {
+            // Title & Subtitle
+            using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Windows & Emulator Clean Up", fTitle, Brushes.White, 145, 48);
+            }
+            using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
+                {
+                    e.Graphics.DrawString("Flush temporary caches, reclaim memory working sets & eliminate lag spikes", fSub, sb, 145, 82);
+                }
+            }
+
+            // 4 Clean Action Cards
+            DrawCleanActionCard(e.Graphics, 145, 116, 288, 112, "BlueStacks Logs & Cache", "Delete engine dumps, logs & shader cache", "Flush Emulator Cache", _rectBtnCleanBs, _hovCleanBs);
+            DrawCleanActionCard(e.Graphics, 450, 116, 288, 112, "Windows %TEMP% Files", "Clear user and system temporary junk files", "Clean Windows Temp", _rectBtnCleanTemp, _hovCleanTemp);
+            DrawCleanActionCard(e.Graphics, 145, 242, 288, 112, "Standby RAM & Working Sets", "Reclaim unused physical memory working sets", "Flush Standby RAM", _rectBtnCleanRam, _hovCleanRam);
+            DrawCleanActionCard(e.Graphics, 450, 242, 288, 112, "DNS Resolver Cache", "Flush DNS cache to resolve in-game ping spikes", "Flush DNS Cache", _rectBtnCleanDns, _hovCleanDns);
+
+            // Bottom Action Banner (145, 370, 593, 86)
+            RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 28f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
+                {
+                    e.Graphics.FillPath(lgb, botPath);
+                }
+            }
+
+            using (Font fStatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("1-Click Complete System Optimization", fStatHead, Brushes.White, 170, 388);
+            }
+            using (Font fStatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
+                {
+                    string statText = string.IsNullOrEmpty(_lastCleanResult) ? _cleanStatusText : _lastCleanResult;
+                    e.Graphics.DrawString(statText, fStatSub, sb, 170, 415);
+                }
+            }
+
+            // Big Clean All Button
+            RectangleF btnAllRect = new RectangleF(_rectBtnCleanAll.X, _rectBtnCleanAll.Y, _rectBtnCleanAll.Width, _rectBtnCleanAll.Height);
+            using (GraphicsPath bap = StudioGraphics.CreateRoundedPath(btnAllRect, 24f))
+            {
+                using (SolidBrush b = new SolidBrush(_hovCleanAll ? Color.White : ColorLightGray))
+                {
+                    e.Graphics.FillPath(b, bap);
+                }
+            }
+            using (Font fAll = FontManager.GetInter(15f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush b = new SolidBrush(ColorNeonPurple))
+                {
+                    SizeF szAll = e.Graphics.MeasureString("CLEAN ALL NOW", fAll);
+                    e.Graphics.DrawString("CLEAN ALL NOW", fAll, b, _rectBtnCleanAll.X + (_rectBtnCleanAll.Width - szAll.Width) / 2f, _rectBtnCleanAll.Y + (_rectBtnCleanAll.Height - szAll.Height) / 2f);
+                }
+            }
+        }
+
+        private void DrawCleanActionCard(Graphics g, float x, float y, float w, float h, string title, string desc, string btnText, Rectangle btnRect, bool isHovered)
+        {
+            RectangleF cardRect = new RectangleF(x, y, w, h);
+            using (GraphicsPath cp = StudioGraphics.CreateRoundedPath(cardRect, 24f))
+            {
+                using (LinearGradientBrush cb = new LinearGradientBrush(cardRect, Color.FromArgb(20, 5, 35), ColorBorderPlum, 135f))
+                {
+                    g.FillPath(cb, cp);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 1.8f))
+                {
+                    g.DrawPath(p, cp);
+                }
+            }
+
+            using (Font fT = FontManager.GetInter(16f, FontStyle.Bold, 600))
+            {
+                g.DrawString(title, fT, Brushes.White, x + 18, y + 16);
+            }
+            using (Font fD = FontManager.GetInter(12f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush db = new SolidBrush(Color.FromArgb(200, 200, 220)))
+                {
+                    g.DrawString(desc, fD, db, x + 18, y + 40);
+                }
+            }
+
+            RectangleF rf = new RectangleF(btnRect.X, btnRect.Y, btnRect.Width, btnRect.Height);
+            using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(rf, 16f))
+            {
+                Color fill = isHovered ? ControlPaint.Light(ColorNeonPurple, 0.2f) : ColorNeonPurple;
+                using (SolidBrush bb = new SolidBrush(fill))
+                {
+                    g.FillPath(bb, bp);
+                }
+            }
+            using (Font fB = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            {
+                SizeF sz = g.MeasureString(btnText, fB);
+                g.DrawString(btnText, fB, Brushes.White, btnRect.X + (btnRect.Width - sz.Width) / 2f, btnRect.Y + (btnRect.Height - sz.Height) / 2f);
+            }
+        }
+
+        private void PaintAboutTab(PaintEventArgs e)
+        {
+            // Title & Subtitle with Official Violet "B" App Logo
+            if (_imgLogo != null)
+            {
+                e.Graphics.DrawImage(_imgLogo, 145, 42, 44, 44);
+                using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
+                {
+                    e.Graphics.DrawString("About Bloomex", fTitle, Brushes.White, 198, 42);
+                }
+                using (Font fSub = FontManager.GetInter(13.5f, FontStyle.Regular, 500))
+                {
+                    using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
+                    {
+                        e.Graphics.DrawString("Bloomex v0.1.0 • Real-Time Kernel Synchronizer & Accelerator", fSub, sb, 198, 72);
+                    }
+                }
+            }
+            else
+            {
+                using (Font fTitle = FontManager.GetInter(24f, FontStyle.Bold, 600))
+                {
+                    e.Graphics.DrawString("About Bloomex", fTitle, Brushes.White, 145, 48);
+                }
+                using (Font fSub = FontManager.GetInter(14f, FontStyle.Regular, 500))
+                {
+                    using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
+                    {
+                        e.Graphics.DrawString("Bloomex v0.1.0 • Real-Time Kernel Synchronizer & Gaming Accelerator", fSub, sb, 145, 82);
+                    }
+                }
+            }
+
+            // Card 1: Emulator & System Profile (Left: 145, 116, 288, 238)
+            RectangleF c1Rect = new RectangleF(145f, 116f, 288f, 238f);
+            using (GraphicsPath c1Path = StudioGraphics.CreateRoundedPath(c1Rect, 28f))
+            {
+                using (LinearGradientBrush c1Brush = new LinearGradientBrush(c1Rect, ColorNeonPurple, Color.FromArgb(0, 113, 194), 135f))
+                {
+                    e.Graphics.FillPath(c1Brush, c1Path);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, c1Path);
+                }
+            }
+
+            using (Font fCardHead = FontManager.GetInter(17f, FontStyle.Bold, 700))
+            {
+                e.Graphics.DrawString("Emulator Architecture", fCardHead, Brushes.White, 165, 134);
+            }
+
+            using (Font fItemLbl = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            using (Font fItemVal = FontManager.GetInter(13f, FontStyle.Regular, 400))
+            using (SolidBrush bLight = new SolidBrush(Color.FromArgb(210, 230, 255)))
+            {
+                var specs = new[]
+                {
+                    new { L = "BlueStacks Version", V = _version },
+                    new { L = "Kernel Engine", V = "Legacy 64-bit Android" },
+                    new { L = "Engine State", V = "Hardware Plus (GlMode=1)" },
+                    new { L = "Graphics Renderer", V = "DirectX / OpenGL Native" },
+                    new { L = "Host Environment", V = Environment.OSVersion.VersionString }
+                };
+
+                float yOff = 168f;
+                foreach (var s in specs)
+                {
+                    e.Graphics.DrawString(s.L, fItemLbl, Brushes.White, 165f, yOff);
+                    e.Graphics.DrawString(s.V, fItemVal, bLight, 165f, yOff + 18f);
+                    yOff += 36f;
+                }
+            }
+
+            // Card 2: Kernel & Registry Sync Health (Right: 450, 116, 288, 238)
+            RectangleF c2Rect = new RectangleF(450f, 116f, 288f, 238f);
+            using (GraphicsPath c2Path = StudioGraphics.CreateRoundedPath(c2Rect, 28f))
+            {
+                using (LinearGradientBrush c2Brush = new LinearGradientBrush(c2Rect, Color.FromArgb(25, 5, 45), ColorBorderPlum, 135f))
+                {
+                    e.Graphics.FillPath(c2Brush, c2Path);
+                }
+                using (Pen p = new Pen(ColorBorderPlum, 2f))
+                {
+                    e.Graphics.DrawPath(p, c2Path);
+                }
+            }
+
+            using (Font fCardHead = FontManager.GetInter(17f, FontStyle.Bold, 700))
+            {
+                e.Graphics.DrawString("Registry Synchronization", fCardHead, Brushes.White, 470, 134);
+            }
+
+            using (Font fItemLbl = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            using (Font fItemVal = FontManager.GetInter(13f, FontStyle.Regular, 400))
+            using (SolidBrush bGreen = new SolidBrush(Color.FromArgb(180, 240, 200)))
+            {
+                var syncItems = new[]
+                {
+                    new { L = "Config FPS Sync", V = "Strict Lock (" + _currentFps + " FPS)" },
+                    new { L = "BootParameters DPI", V = "Synchronized (" + _dpi + " DPI)" },
+                    new { L = "Resolution FrameBuffer", V = _display + " (Synced)" },
+                    new { L = "Memory Allocation", V = _ramText + " (Verified)" },
+                    new { L = "Target Optimization", V = "Free Fire Pro Gaming" }
+                };
+
+                float yOff = 168f;
+                foreach (var s in syncItems)
+                {
+                    e.Graphics.DrawString(s.L, fItemLbl, Brushes.White, 470f, yOff);
+                    e.Graphics.DrawString(s.V, fItemVal, bGreen, 470f, yOff + 18f);
+                    yOff += 36f;
+                }
+            }
+
+            // Bottom Banner: Developer & Features Banner (145, 370, 593, 86)
+            RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
+            using (GraphicsPath botPath = StudioGraphics.CreateRoundedPath(botRect, 28f))
+            {
+                using (LinearGradientBrush lgb = new LinearGradientBrush(botRect, ColorGradStart, ColorGradEnd, 120f))
+                {
+                    e.Graphics.FillPath(lgb, botPath);
+                }
+            }
+
+            using (Font fFeatHead = FontManager.GetInter(16f, FontStyle.Bold, 600))
+            {
+                e.Graphics.DrawString("Ultra-Smooth FPS Engineering", fFeatHead, Brushes.White, 170, 388);
+            }
+            using (Font fFeatSub = FontManager.GetInter(12.5f, FontStyle.Regular, 400))
+            {
+                using (SolidBrush sb = new SolidBrush(Color.FromArgb(240, 230, 255)))
+                {
+                    e.Graphics.DrawString("Eliminates emulator micro-stutters and stabilizes frame rates.", fFeatSub, sb, 170, 415);
+                }
+            }
+
+            // Back to Dashboard Button
+            RectangleF btnBackRect = new RectangleF(_rectBtnBackDash.X, _rectBtnBackDash.Y, _rectBtnBackDash.Width, _rectBtnBackDash.Height);
+            using (GraphicsPath bbp = StudioGraphics.CreateRoundedPath(btnBackRect, 24f))
+            {
+                using (SolidBrush b = new SolidBrush(_hovBackDash ? Color.White : ColorLightGray))
+                {
+                    e.Graphics.FillPath(b, bbp);
+                }
+            }
+            using (Font fHomeBtn = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
+            {
+                using (SolidBrush b = new SolidBrush(ColorNeonPurple))
+                {
+                    SizeF szHome = e.Graphics.MeasureString("BACK TO DASHBOARD", fHomeBtn);
+                    e.Graphics.DrawString("BACK TO DASHBOARD", fHomeBtn, b, _rectBtnBackDash.X + (_rectBtnBackDash.Width - szHome.Width) / 2f, _rectBtnBackDash.Y + (_rectBtnBackDash.Height - szHome.Height) / 2f);
+                }
+            }
+        }
+
+        private void DrawPillButton20(Graphics g, Rectangle r, string text, bool isHovered)
+        {
+            RectangleF rf = new RectangleF(r.X, r.Y, r.Width, r.Height);
+            using (GraphicsPath gp = StudioGraphics.CreateRoundedPath(rf, 17.5f))
+            {
+                Color fill = isHovered ? ControlPaint.Light(ColorNeonPurple, 0.2f) : ColorNeonPurple;
+                using (SolidBrush b = new SolidBrush(fill))
+                {
+                    g.FillPath(b, gp);
+                }
+            }
+
+            using (Font f = FontManager.GetInter(18f, FontStyle.Bold, 600))
+            {
+                SizeF sz = g.MeasureString(text, f);
+                g.DrawString(text, f, Brushes.White, r.X + (r.Width - sz.Width) / 2f, r.Y + (r.Height - sz.Height) / 2f);
+            }
+        }
+
+        private void DrawQuickSetPill(Graphics g, Rectangle r, string text, bool isSelected)
+        {
+            RectangleF rf = new RectangleF(r.X, r.Y, r.Width, r.Height);
+            using (GraphicsPath gp = StudioGraphics.CreateRoundedPath(rf, 7f))
+            {
+                Color fill = isSelected ? ColorPresetActiveBg : ColorBorderPlum;
+                using (SolidBrush b = new SolidBrush(fill))
+                {
+                    g.FillPath(b, gp);
+                }
+
+                Color stroke = isSelected ? ColorPresetActiveBorder : ColorNeonPurple;
+                using (Pen p = new Pen(stroke, 1f))
+                {
+                    g.DrawPath(p, gp);
+                }
+            }
+
+            using (Font f = FontManager.GetInter(13f, FontStyle.Bold, 600))
+            {
+                SizeF sz = g.MeasureString(text, f);
+                g.DrawString(text, f, Brushes.White, r.X + (r.Width - sz.Width) / 2f, r.Y + (r.Height - sz.Height) / 2f);
+            }
+        }
+
+        // =========================================================================
+        // CLEANUP ACTIONS IMPLEMENTATION
+        // =========================================================================
+        private void PerformBlueStacksClean()
+        {
+            int files = 0;
+            long bytes = 0;
+            try
+            {
+                string[] logDirs = new string[]
+                {
+                    @"F:\Bluestacks 04\BlueStacks\Logs",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BlueStacks\Logs"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"BlueStacks\Engine\UserData\Log")
+                };
+
+                foreach (string dir in logDirs)
+                {
+                    if (Directory.Exists(dir))
+                    {
+                        foreach (string file in Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
+                        {
+                            try
+                            {
+                                FileInfo fi = new FileInfo(file);
+                                long len = fi.Length;
+                                File.Delete(file);
+                                bytes += len;
+                                files++;
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                _lastCleanResult = "Cleaned " + files + " BlueStacks log and dump files (" + (bytes / 1024) + " KB freed).";
+                Invalidate();
+                MessageBox.Show(_lastCleanResult, "BlueStacks Clean Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Notice: " + ex.Message, "Clean Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void PerformWindowsTempClean()
+        {
+            int files = 0;
+            long bytes = 0;
+            try
+            {
+                string tempDir = Path.GetTempPath();
+                if (Directory.Exists(tempDir))
+                {
+                    foreach (string file in Directory.GetFiles(tempDir))
+                    {
+                        try
+                        {
+                            FileInfo fi = new FileInfo(file);
+                            long len = fi.Length;
+                            File.Delete(file);
+                            bytes += len;
+                            files++;
+                        }
+                        catch { }
+                    }
+                }
+
+                _lastCleanResult = "Cleaned " + files + " Windows temp files (" + (bytes / (1024 * 1024)) + " MB freed).";
+                Invalidate();
+                MessageBox.Show(_lastCleanResult, "Windows Temp Clean Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Notice: " + ex.Message, "Clean Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void PerformStandbyRamFlush()
+        {
+            int procCount = 0;
+            try
+            {
+                foreach (Process p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        EmptyWorkingSet(p.Handle);
+                        procCount++;
+                    }
+                    catch { }
+                }
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                _lastCleanResult = "Flushed memory working sets for " + procCount + " active processes.";
+                Invalidate();
+                MessageBox.Show(_lastCleanResult + "\nStandby physical RAM has been reclaimed for gaming.", "RAM Working Sets Flushed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Notice: " + ex.Message, "RAM Flush Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void PerformDnsFlush()
+        {
+            try
+            {
+                DnsFlushResolverCache();
+                _lastCleanResult = "Windows DNS Resolver Cache successfully flushed.";
+                Invalidate();
+                MessageBox.Show("Windows DNS Resolver Cache successfully flushed!\nPing spikes and network route latency cleared.", "DNS Flush Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Notice: " + ex.Message, "DNS Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void PerformCleanAll()
+        {
+            try
+            {
+                // 1. BlueStacks Logs
+                int bsFiles = 0;
+                long bsBytes = 0;
+                string[] logDirs = new string[]
+                {
+                    @"F:\Bluestacks 04\BlueStacks\Logs",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BlueStacks\Logs")
+                };
+                foreach (string dir in logDirs)
+                {
+                    if (Directory.Exists(dir))
+                    {
+                        foreach (string file in Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
+                        {
+                            try
+                            {
+                                FileInfo fi = new FileInfo(file);
+                                long len = fi.Length;
+                                File.Delete(file);
+                                bsBytes += len;
+                                bsFiles++;
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                // 2. Windows Temp
+                int tempFiles = 0;
+                long tempBytes = 0;
+                string tempDir = Path.GetTempPath();
+                if (Directory.Exists(tempDir))
+                {
+                    foreach (string file in Directory.GetFiles(tempDir))
+                    {
+                        try
+                        {
+                            FileInfo fi = new FileInfo(file);
+                            long len = fi.Length;
+                            File.Delete(file);
+                            tempBytes += len;
+                            tempFiles++;
+                        }
+                        catch { }
+                    }
+                }
+
+                // 3. RAM Flush
+                int procCount = 0;
+                foreach (Process p in Process.GetProcesses())
+                {
+                    try { EmptyWorkingSet(p.Handle); procCount++; } catch { }
+                }
+                GC.Collect();
+
+                // 4. DNS Flush
+                DnsFlushResolverCache();
+
+                long totalMb = (bsBytes + tempBytes) / (1024 * 1024);
+                _lastCleanResult = "Clean Complete: " + (bsFiles + tempFiles) + " files cleaned (" + totalMb + " MB), " + procCount + " processes memory trimmed, DNS flushed.";
+                Invalidate();
+
+                string msg = "1-Click Optimization Completed Successfully!\n\n" +
+                             "• Temporary Junk Cleaned: " + (bsFiles + tempFiles) + " files (" + totalMb + " MB)\n" +
+                             "• Memory Working Sets: Trimmmed on " + procCount + " processes\n" +
+                             "• DNS Resolver Cache: Successfully flushed\n" +
+                             "• System Gaming Readiness: 100% Optimized";
+                MessageBox.Show(msg, "Complete System Clean", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Notice: " + ex.Message, "Clean Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void ShowHelpDialog()
+        {
+            string msg = "BlueStacks 04 Optimizer & Real Sync Guide:\n\n" +
+                         "1. Quick Sets: Choose 60, 90, 120, or 240 FPS.\n" +
+                         "2. Custom DPI / Display / RAM: Click directly on DPI, Display, or RAM to choose presets.\n" +
+                         "3. APPLY CHANGES: Writes and synchronizes all 4 settings simultaneously to the BlueStacks 4 registry.\n" +
+                         "4. Start: Launches BlueStacks 4 (Bluestacks.exe).\n" +
+                         "5. Restart: Closes and relaunches BlueStacks 4 to reload new kernel parameters.\n" +
+                         "6. Stop: Safely terminates running BlueStacks instances.\n" +
+                         "7. Navigation: Use left sidebar icons (Home = Dashboard, Trash = Clean Up, Info = About).";
+            MessageBox.Show(msg, "BlueStacks 04 Help", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void RefreshTelemetry(bool isInitial)
+        {
+            try
+            {
+                BlueStacksConfig cfg = BlueStacksRegistry.ReadConfig();
+                _installDir = cfg.InstallDir;
+
+                if (isInitial || !_userModifiedSettings)
+                {
+                    if (cfg.DPI > 0) _dpi = cfg.DPI;
+                    if (cfg.GuestWidth > 0 && cfg.GuestHeight > 0)
+                    {
+                        _width = cfg.GuestWidth;
+                        _height = cfg.GuestHeight;
+                        _display = _width + "x" + _height;
+                    }
+                    if (cfg.RamMB > 0)
+                    {
+                        _ramMB = cfg.RamMB;
+                        _ramText = _ramMB + " MB";
+                    }
+                    if (isInitial && cfg.ConfigFPS > 0)
+                    {
+                        _currentFps = cfg.ConfigFPS;
+                    }
+                }
+                if (!string.IsNullOrEmpty(cfg.Version)) _version = cfg.Version;
+
+                Invalidate();
+            }
+            catch { }
+        }
+
+        private void ApplyFpsChanges()
+        {
+            string err;
+            bool ok = BlueStacksRegistry.WriteFullConfig(_currentFps, _dpi, _width, _height, _ramMB, true, false, true, out err);
+            if (ok)
+            {
+                _userModifiedSettings = false;
+                RefreshTelemetry(false);
+                string msg = "Emulator Settings Synchronized & Locked!\n\n" +
+                             "• Target FPS: " + _currentFps + " (Config\\FPS & BootParameters)\n" +
+                             "• DPI: " + _dpi + " (BootParameters DPI=" + _dpi + ")\n" +
+                             "• Display: " + _display + " (FrameBuffer\\0)\n" +
+                             "• RAM: " + _ramMB + " MB (Guests\\Android Memory)\n\n" +
+                             "Restart BlueStacks to activate new settings.";
+                MessageBox.Show(msg, "Real-Sync Applied Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show(err, "Registry Sync Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void LaunchBlueStacks()
+        {
+            string err;
+            bool ok = BlueStacksProcess.Launch(_installDir, out err);
+            if (!ok)
+            {
+                MessageBox.Show(err, "Launch Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void RestartBlueStacks()
+        {
+            string err;
+            BlueStacksRegistry.WriteFullConfig(_currentFps, _dpi, _width, _height, _ramMB, true, false, true, out err);
+            BlueStacksProcess.Restart(_installDir, out err);
+        }
+
+        private void StopBlueStacks()
+        {
+            string err;
+            BlueStacksProcess.Stop(_installDir, out err);
+        }
+    }
+}

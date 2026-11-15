@@ -1,0 +1,7 @@
+*.log
+rendered_*.png
+render_*.ps1
+update_shortcut.ps1
+.vs/
+bin/
+obj/
