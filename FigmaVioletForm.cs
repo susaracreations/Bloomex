@@ -173,13 +173,15 @@ namespace BlueStacks4FPSTweaker
         private Rectangle _rectIconSettings = new Rectangle(51, 238, 48, 48);
         private Rectangle _rectIconInfo = new Rectangle(51, 300, 48, 48);
 
-        // Game Mode Page Controls
-        private Rectangle _rectRowExplorer = new Rectangle(155, 155, 270, 50);
-        private Rectangle _rectRowDwm = new Rectangle(155, 215, 270, 50);
-        private Rectangle _rectRowTimer = new Rectangle(155, 275, 270, 50);
-        private Rectangle _rectRowCache = new Rectangle(460, 155, 270, 50);
-        private Rectangle _rectRowSnapTap = new Rectangle(460, 215, 270, 50);
-        private Rectangle _rectRowPriority = new Rectangle(460, 275, 270, 50);
+        // Game Mode Page Controls (8 High-Performance BoosterX Tweaks)
+        private Rectangle _rectRowExplorer = new Rectangle(155, 150, 270, 44);
+        private Rectangle _rectRowDwm = new Rectangle(155, 196, 270, 44);
+        private Rectangle _rectRowTimer = new Rectangle(155, 242, 270, 44);
+        private Rectangle _rectRowCpuFocus = new Rectangle(155, 288, 270, 44);
+        private Rectangle _rectRowCache = new Rectangle(460, 150, 270, 44);
+        private Rectangle _rectRowSnapTap = new Rectangle(460, 196, 270, 44);
+        private Rectangle _rectRowRiThreads = new Rectangle(460, 242, 270, 44);
+        private Rectangle _rectRowPCore = new Rectangle(460, 288, 270, 44);
         private Rectangle _rectBtnToggleGameMode = new Rectangle(490, 388, 225, 48);
 
         // Settings Page & Dedicated GPU Controls
@@ -227,9 +229,11 @@ namespace BlueStacks4FPSTweaker
         private bool _hovRowExplorer = false;
         private bool _hovRowDwm = false;
         private bool _hovRowTimer = false;
+        private bool _hovRowCpuFocus = false;
         private bool _hovRowCache = false;
         private bool _hovRowSnapTap = false;
-        private bool _hovRowPriority = false;
+        private bool _hovRowRiThreads = false;
+        private bool _hovRowPCore = false;
         private bool _hovToggleGameMode = false;
         private bool _hovHelp = false;
         private bool _hovStart = false;
@@ -577,6 +581,12 @@ namespace BlueStacks4FPSTweaker
                         Invalidate();
                         return;
                     }
+                    if (_rectRowCpuFocus.Contains(e.Location))
+                    {
+                        GameModeEngine.OptCpuFocus = !GameModeEngine.OptCpuFocus;
+                        Invalidate();
+                        return;
+                    }
                     if (_rectRowCache.Contains(e.Location))
                     {
                         GameModeEngine.OptCleanCacheOnLaunch = !GameModeEngine.OptCleanCacheOnLaunch;
@@ -589,9 +599,15 @@ namespace BlueStacks4FPSTweaker
                         Invalidate();
                         return;
                     }
-                    if (_rectRowPriority.Contains(e.Location))
+                    if (_rectRowRiThreads.Contains(e.Location))
                     {
-                        GameModeEngine.OptPriorityBoost = !GameModeEngine.OptPriorityBoost;
+                        GameModeEngine.OptDisableRiThreads = !GameModeEngine.OptDisableRiThreads;
+                        Invalidate();
+                        return;
+                    }
+                    if (_rectRowPCore.Contains(e.Location))
+                    {
+                        GameModeEngine.OptPCoreAffinity = !GameModeEngine.OptPCoreAffinity;
                         Invalidate();
                         return;
                     }
@@ -806,14 +822,20 @@ namespace BlueStacks4FPSTweaker
                 bool hSwTimer = _rectRowTimer.Contains(e.Location);
                 if (hSwTimer != _hovRowTimer) { _hovRowTimer = hSwTimer; anyHovChange = true; }
 
+                bool hSwCpuFocus = _rectRowCpuFocus.Contains(e.Location);
+                if (hSwCpuFocus != _hovRowCpuFocus) { _hovRowCpuFocus = hSwCpuFocus; anyHovChange = true; }
+
                 bool hSwCache = _rectRowCache.Contains(e.Location);
                 if (hSwCache != _hovRowCache) { _hovRowCache = hSwCache; anyHovChange = true; }
 
                 bool hSwSnap = _rectRowSnapTap.Contains(e.Location);
                 if (hSwSnap != _hovRowSnapTap) { _hovRowSnapTap = hSwSnap; anyHovChange = true; }
 
-                bool hSwPrio = _rectRowPriority.Contains(e.Location);
-                if (hSwPrio != _hovRowPriority) { _hovRowPriority = hSwPrio; anyHovChange = true; }
+                bool hSwRi = _rectRowRiThreads.Contains(e.Location);
+                if (hSwRi != _hovRowRiThreads) { _hovRowRiThreads = hSwRi; anyHovChange = true; }
+
+                bool hSwPCore = _rectRowPCore.Contains(e.Location);
+                if (hSwPCore != _hovRowPCore) { _hovRowPCore = hSwPCore; anyHovChange = true; }
 
                 bool hTgm = _rectBtnToggleGameMode.Contains(e.Location);
                 if (hTgm != _hovToggleGameMode) { _hovToggleGameMode = hTgm; anyHovChange = true; }
@@ -857,7 +879,7 @@ namespace BlueStacks4FPSTweaker
 
             bool isClickable = _hovClose || _hovMin || _hovHome || _hovGameMode || _hovTrash || _hovSettings || _hovInfo || _hovUpdateBadge ||
                 (_currentTab == AppTab.Dashboard && (_hovHelp || _hovStart || _hovStop || _hovRestart || _hovApply || _hovDpi || _hovDisplay || _hovRam || _rectPill60.Contains(e.Location) || _rectPill90.Contains(e.Location) || _rectPill120.Contains(e.Location) || _rectPill240.Contains(e.Location))) ||
-                (_currentTab == AppTab.CommonProfile && (_hovRowExplorer || _hovRowDwm || _hovRowTimer || _hovRowCache || _hovRowSnapTap || _hovRowPriority || _hovToggleGameMode)) ||
+                (_currentTab == AppTab.CommonProfile && (_hovRowExplorer || _hovRowDwm || _hovRowTimer || _hovRowCpuFocus || _hovRowCache || _hovRowSnapTap || _hovRowRiThreads || _hovRowPCore || _hovToggleGameMode)) ||
                 (_currentTab == AppTab.CleanUp && (_hovCleanBs || _hovCleanTemp || _hovCleanRam || _hovCleanDns || _hovCleanAll)) ||
                 (_currentTab == AppTab.Settings && (_hovGpuCheck || _hovSaveSettings)) ||
                 (_currentTab == AppTab.About && (_hovBackDash || _hovCheckUpdates));
@@ -1342,12 +1364,13 @@ namespace BlueStacks4FPSTweaker
             }
             using (Font fCardHead = FontManager.GetInter(16f, FontStyle.Bold, 700))
             {
-                e.Graphics.DrawString("Shell & Compositor", fCardHead, Brushes.White, 168, 132);
+                e.Graphics.DrawString("Shell & System Profile", fCardHead, Brushes.White, 168, 128);
             }
 
-            DrawGameOptionRow(e.Graphics, 165f, 162f, "Disable Explorer", "Suspends shell to kill DPC lag", null, GameModeEngine.OptDisableExplorer, _hovRowExplorer);
-            DrawGameOptionRow(e.Graphics, 165f, 222f, "Disable DWM", "Bypasses compositing queue", null, GameModeEngine.OptDisableDwm, _hovRowDwm);
-            DrawGameOptionRow(e.Graphics, 165f, 282f, "0.5ms Timer", "Ultra-low microsecond frame pacing", null, GameModeEngine.OptTimerResolution, _hovRowTimer);
+            DrawGameOptionRow(e.Graphics, 165f, 152f, "Disable Explorer", "Suspends shell to kill DPC lag", null, GameModeEngine.OptDisableExplorer, _hovRowExplorer);
+            DrawGameOptionRow(e.Graphics, 165f, 198f, "Disable DWM", "Bypasses compositing queue", null, GameModeEngine.OptDisableDwm, _hovRowDwm);
+            DrawGameOptionRow(e.Graphics, 165f, 244f, "0.5ms Timer", "Ultra-low microsecond frame pacing", null, GameModeEngine.OptTimerResolution, _hovRowTimer);
+            DrawGameOptionRow(e.Graphics, 165f, 290f, "100% CPU Focus", "Disables 20% background reserve", null, GameModeEngine.OptCpuFocus, _hovRowCpuFocus);
 
             // Card 2: Engine & Input Tuning (Right: 450, 116, 288, 238)
             RectangleF c2Rect = new RectangleF(450f, 116f, 288f, 238f);
@@ -1364,12 +1387,13 @@ namespace BlueStacks4FPSTweaker
             }
             using (Font fCardHead = FontManager.GetInter(16f, FontStyle.Bold, 700))
             {
-                e.Graphics.DrawString("Engine & Input Tuning", fCardHead, Brushes.White, 470, 132);
+                e.Graphics.DrawString("Engine & Input Tuning", fCardHead, Brushes.White, 470, 128);
             }
 
-            DrawGameOptionRow(e.Graphics, 470f, 162f, "Clean Cache", "Auto purge memory on launch", "CTRL+SHIFT+P", GameModeEngine.OptCleanCacheOnLaunch, _hovRowCache);
-            DrawGameOptionRow(e.Graphics, 470f, 222f, "Snap Tap", "A+D instant counter-strafing", "A+D", GameModeEngine.OptSnapTap, _hovRowSnapTap);
-            DrawGameOptionRow(e.Graphics, 470f, 282f, "High Priority", "Locks HD-Player.exe to High", "PRO", GameModeEngine.OptPriorityBoost, _hovRowPriority);
+            DrawGameOptionRow(e.Graphics, 470f, 152f, "Clean Cache", "Auto purge memory on launch", "CTRL+SHIFT+P", GameModeEngine.OptCleanCacheOnLaunch, _hovRowCache);
+            DrawGameOptionRow(e.Graphics, 470f, 198f, "Snap Tap", "A+D instant counter-strafing", "A+D", GameModeEngine.OptSnapTap, _hovRowSnapTap);
+            DrawGameOptionRow(e.Graphics, 470f, 244f, "Disable RI Threads", "Ultra-low input polling lag", "PRO", GameModeEngine.OptDisableRiThreads, _hovRowRiThreads);
+            DrawGameOptionRow(e.Graphics, 470f, 290f, "P-Core Affinity", "Locks HD-Player.exe to P-cores", "BOOST", GameModeEngine.OptPCoreAffinity, _hovRowPCore);
 
             // Bottom Action Banner (145, 370, 593, 86)
             RectangleF botRect = new RectangleF(145f, 370f, 593f, 86f);
@@ -1433,8 +1457,8 @@ namespace BlueStacks4FPSTweaker
         {
             if (isHovered)
             {
-                RectangleF hovRect = new RectangleF(x - 6f, y - 4f, 260f, 48f);
-                using (GraphicsPath hp = StudioGraphics.CreateRoundedPath(hovRect, 12f))
+                RectangleF hovRect = new RectangleF(x - 6f, y - 3f, 260f, 42f);
+                using (GraphicsPath hp = StudioGraphics.CreateRoundedPath(hovRect, 10f))
                 {
                     using (SolidBrush hb = new SolidBrush(Color.FromArgb(30, Color.White)))
                     {
@@ -1443,20 +1467,20 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            using (Font fTitle = FontManager.GetInter(13.5f, FontStyle.Bold, 600))
+            using (Font fTitle = FontManager.GetInter(12.5f, FontStyle.Bold, 600))
             {
                 g.DrawString(title, fTitle, Brushes.White, x, y);
             }
 
             if (!string.IsNullOrEmpty(badgeText))
             {
-                using (Font fBadge = FontManager.GetInter(9.5f, FontStyle.Bold, 600))
+                using (Font fBadge = FontManager.GetInter(9f, FontStyle.Bold, 600))
                 {
                     SizeF szB = g.MeasureString(badgeText, fBadge);
-                    float bw = szB.Width + 10f;
-                    float bh = 16f;
-                    RectangleF badgeRect = new RectangleF(x + 215f - bw - 10f, y + 1f, bw, bh);
-                    using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(badgeRect, 8f))
+                    float bw = szB.Width + 8f;
+                    float bh = 15f;
+                    RectangleF badgeRect = new RectangleF(x + 215f - bw - 8f, y + 1f, bw, bh);
+                    using (GraphicsPath bp = StudioGraphics.CreateRoundedPath(badgeRect, 7f))
                     {
                         using (SolidBrush b = new SolidBrush(Color.FromArgb(80, ColorNeonPurple)))
                         {
@@ -1471,16 +1495,16 @@ namespace BlueStacks4FPSTweaker
                 }
             }
 
-            using (Font fDesc = FontManager.GetInter(11f, FontStyle.Regular, 400))
+            using (Font fDesc = FontManager.GetInter(10.5f, FontStyle.Regular, 400))
             {
                 using (SolidBrush sb = new SolidBrush(Color.FromArgb(190, 180, 220)))
                 {
-                    g.DrawString(desc, fDesc, sb, x, y + 18f);
+                    g.DrawString(desc, fDesc, sb, x, y + 16f);
                 }
             }
 
             float swX = x + 215f;
-            float swY = y + 8f;
+            float swY = y + 7f;
             DrawToggleSwitch(g, swX, swY, isEnabled, isHovered);
         }
 

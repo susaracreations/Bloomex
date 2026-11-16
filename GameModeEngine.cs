@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace BlueStacks4FPSTweaker
 {
@@ -52,6 +53,20 @@ namespace BlueStacks4FPSTweaker
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr OpenThread(uint dwDesiredAccess, bool bInheritHandle, uint dwThreadId);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool SetThreadPriority(IntPtr hThread, int nPriority);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        private const int THREAD_SET_INFORMATION = 0x0020;
+        private const int THREAD_PRIORITY_TIME_CRITICAL = 15;
+        private const int THREAD_PRIORITY_HIGHEST = 2;
+        private const int THREAD_PRIORITY_NORMAL = 0;
+
         private const int WH_KEYBOARD_LL = 13;
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
@@ -76,21 +91,33 @@ namespace BlueStacks4FPSTweaker
         }
 
         // =========================================================================
-        // STATE & OPTIONS
+        // STATE & OPTIONS (BoosterX Advanced Tweaks)
         // =========================================================================
         public static bool IsGameModeActive { get; private set; }
 
+        // Card 1: Shell & System Profile
         public static bool OptDisableExplorer = true;
         public static bool OptDisableDwm = true;
-        public static bool OptCleanCacheOnLaunch = true;
-        public static bool OptSnapTap = true;
-        public static bool OptPriorityBoost = true;
         public static bool OptTimerResolution = true;
+        public static bool OptCpuFocus = true;            // 100% Game CPU Focus (SystemResponsiveness = 0)
 
+        // Card 2: Engine & Input Tuning
+        public static bool OptCleanCacheOnLaunch = true;
+        public static bool OptSnapTap = true;             // A+D Counter-Strafe SOCD
+        public static bool OptDisableRiThreads = true;    // Disable RI Threads / Input Message Priority
+        public static bool OptPCoreAffinity = true;       // P-Core CPU Affinity Lock
+        public static bool OptPriorityBoost = true;       // High Priority Class
+
+        // Restoration Backups
         private static bool _explorerWasKilled = false;
         private static bool _timerResSet = false;
         private static IntPtr _hookId = IntPtr.Zero;
         private static LowLevelKeyboardProc _hookProc;
+
+        private static object _origSystemResp = null;
+        private static object _origNetThrottle = null;
+        private static bool _sysProfileTweaked = false;
+        private static long _origAffinityMask = 0;
 
         // Snap Tap state tracking
         private static bool _physicallyHoldingA = false;
@@ -121,25 +148,43 @@ namespace BlueStacks4FPSTweaker
                     _timerResSet = true;
                 }
 
-                // 2. Auto Cache Purge on launch
+                // 2. 100% Game CPU Focus (SystemResponsiveness = 0 & NetworkThrottlingIndex = 0xFFFFFFFF)
+                if (OptCpuFocus)
+                {
+                    ApplySystemProfileTweaks(true);
+                }
+
+                // 3. Auto Cache Purge on launch
                 if (OptCleanCacheOnLaunch)
                 {
                     PurgeGameCaches();
                 }
 
-                // 3. Process Priority Boost (HD-Player.exe)
+                // 4. Process Priority Boost (HD-Player.exe)
                 if (OptPriorityBoost)
                 {
                     BoostBlueStacksPriority();
                 }
 
-                // 4. Snap Tap (A+D SOCD Counter-Strafe)
+                // 5. P-Core CPU Affinity Lock (Anti-Stutter)
+                if (OptPCoreAffinity)
+                {
+                    ApplyPCoreAffinity(true);
+                }
+
+                // 6. Disable RI Threads / Input Polling Priority
+                if (OptDisableRiThreads)
+                {
+                    ApplyRiThreadTuning(true);
+                }
+
+                // 7. Snap Tap (A+D SOCD Counter-Strafe)
                 if (OptSnapTap)
                 {
                     StartSnapTapHook();
                 }
 
-                // 5. Disable Explorer (Kill taskbar & shell)
+                // 8. Disable Explorer (Kill taskbar & shell)
                 if (OptDisableExplorer)
                 {
                     KillExplorer();
@@ -173,8 +218,20 @@ namespace BlueStacks4FPSTweaker
                     _timerResSet = false;
                 }
 
-                // 4. Restore BlueStacks Priority to Normal
+                // 4. Restore System Profile Tweaks (SystemResponsiveness)
+                if (_sysProfileTweaked)
+                {
+                    ApplySystemProfileTweaks(false);
+                }
+
+                // 5. Restore BlueStacks Priority to Normal
                 RestoreBlueStacksPriority();
+
+                // 6. Restore CPU Affinity to all cores
+                ApplyPCoreAffinity(false);
+
+                // 7. Restore RI Threads Tuning
+                ApplyRiThreadTuning(false);
             }
             catch { }
         }
@@ -185,6 +242,152 @@ namespace BlueStacks4FPSTweaker
                 Deactivate();
             else
                 Activate();
+        }
+
+        // =========================================================================
+        // 100% CPU FOCUS & MULTIMEDIA SYSTEM PROFILE
+        // =========================================================================
+        private static void ApplySystemProfileTweaks(bool enable)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile", true))
+                {
+                    if (key != null)
+                    {
+                        if (enable)
+                        {
+                            _origSystemResp = key.GetValue("SystemResponsiveness", 20);
+                            _origNetThrottle = key.GetValue("NetworkThrottlingIndex", 10);
+
+                            key.SetValue("SystemResponsiveness", 0, RegistryValueKind.DWord);
+                            key.SetValue("NetworkThrottlingIndex", unchecked((int)0xFFFFFFFF), RegistryValueKind.DWord);
+                            _sysProfileTweaked = true;
+                        }
+                        else
+                        {
+                            if (_origSystemResp != null) key.SetValue("SystemResponsiveness", _origSystemResp, RegistryValueKind.DWord);
+                            if (_origNetThrottle != null) key.SetValue("NetworkThrottlingIndex", _origNetThrottle, RegistryValueKind.DWord);
+                            _sysProfileTweaked = false;
+                        }
+                    }
+                }
+
+                using (RegistryKey gamesKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games", true))
+                {
+                    if (gamesKey != null)
+                    {
+                        if (enable)
+                        {
+                            gamesKey.SetValue("GPU Priority", 8, RegistryValueKind.DWord);
+                            gamesKey.SetValue("Priority", 6, RegistryValueKind.DWord);
+                            gamesKey.SetValue("Scheduling Category", "High", RegistryValueKind.String);
+                            gamesKey.SetValue("SFIO Priority", "High", RegistryValueKind.String);
+                        }
+                        else
+                        {
+                            gamesKey.SetValue("Priority", 2, RegistryValueKind.DWord);
+                            gamesKey.SetValue("Scheduling Category", "Medium", RegistryValueKind.String);
+                            gamesKey.SetValue("SFIO Priority", "Normal", RegistryValueKind.String);
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // =========================================================================
+        // P-CORE CPU AFFINITY LOCK (ANTI-STUTTER)
+        // =========================================================================
+        private static void ApplyPCoreAffinity(bool enable)
+        {
+            try
+            {
+                int totalLogicalCores = Environment.ProcessorCount;
+                long mask = 0;
+
+                if (enable)
+                {
+                    // For modern multi-core systems, assign the primary performance cores
+                    // (Avoid scheduling Android threads onto slower E-cores or high-latency CCDs)
+                    if (totalLogicalCores >= 16)
+                    {
+                        // 8 P-Cores with HyperThreading = Cores 0-15
+                        mask = 0xFFFFL;
+                    }
+                    else if (totalLogicalCores >= 12)
+                    {
+                        // 6 P-Cores with HyperThreading = Cores 0-11
+                        mask = 0x0FFFL;
+                    }
+                    else if (totalLogicalCores >= 8)
+                    {
+                        // 4 P-Cores with HyperThreading = Cores 0-7
+                        mask = 0x00FFL;
+                    }
+                    else
+                    {
+                        // All cores
+                        mask = (1L << totalLogicalCores) - 1;
+                    }
+                }
+                else
+                {
+                    // Restore to all logical cores
+                    mask = (1L << totalLogicalCores) - 1;
+                }
+
+                string[] targets = { "HD-Player", "HD-Frontend", "BlueStacks" };
+                foreach (string t in targets)
+                {
+                    foreach (Process p in Process.GetProcessesByName(t))
+                    {
+                        try
+                        {
+                            if (_origAffinityMask == 0)
+                            {
+                                _origAffinityMask = (long)p.ProcessorAffinity;
+                            }
+                            p.ProcessorAffinity = (IntPtr)mask;
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // =========================================================================
+        // DISABLE RI THREADS / INPUT POLLING PRIORITY BOOST
+        // =========================================================================
+        private static void ApplyRiThreadTuning(bool enable)
+        {
+            try
+            {
+                string[] targets = { "HD-Player", "HD-Frontend" };
+                int priority = enable ? THREAD_PRIORITY_TIME_CRITICAL : THREAD_PRIORITY_NORMAL;
+
+                foreach (string t in targets)
+                {
+                    foreach (Process p in Process.GetProcessesByName(t))
+                    {
+                        try
+                        {
+                            foreach (ProcessThread pt in p.Threads)
+                            {
+                                IntPtr hThread = OpenThread(THREAD_SET_INFORMATION, false, (uint)pt.Id);
+                                if (hThread != IntPtr.Zero)
+                                {
+                                    SetThreadPriority(hThread, priority);
+                                    CloseHandle(hThread);
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
         }
 
         // =========================================================================
@@ -281,7 +484,6 @@ namespace BlueStacks4FPSTweaker
         {
             try
             {
-                // 1. Trim memory of running processes
                 Process[] allProcs = Process.GetProcesses();
                 foreach (Process p in allProcs)
                 {
@@ -292,7 +494,6 @@ namespace BlueStacks4FPSTweaker
                     catch { }
                 }
 
-                // 2. Clear temp files
                 string temp = Path.GetTempPath();
                 if (Directory.Exists(temp))
                 {
@@ -302,7 +503,6 @@ namespace BlueStacks4FPSTweaker
                     }
                 }
 
-                // 3. Clear BlueStacks engine logs
                 string pData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
                 string bsLogs = Path.Combine(pData, @"BlueStacks\Logs");
                 if (Directory.Exists(bsLogs))
@@ -346,7 +546,6 @@ namespace BlueStacks4FPSTweaker
             {
                 KBDLLHOOKSTRUCT hookStruct = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
 
-                // If event originated from our own synthetic keybd_event, let it pass directly
                 if (hookStruct.dwExtraInfo == SNAP_TAG)
                 {
                     return CallNextHookEx(_hookId, nCode, wParam, lParam);
@@ -367,8 +566,6 @@ namespace BlueStacks4FPSTweaker
                             if (!_physicallyHoldingA)
                             {
                                 _physicallyHoldingA = true;
-
-                                // If D is already pressed, send simulated KeyUp for D
                                 if (_physicallyHoldingD)
                                 {
                                     keybd_event(VK_D, 0, KEYEVENTF_KEYUP, SNAP_TAG);
@@ -378,7 +575,6 @@ namespace BlueStacks4FPSTweaker
                         else if (isKeyUp)
                         {
                             _physicallyHoldingA = false;
-                            // If D is still physically held down, re-press D
                             if (_physicallyHoldingD)
                             {
                                 keybd_event(VK_D, 0, 0, SNAP_TAG);
@@ -392,8 +588,6 @@ namespace BlueStacks4FPSTweaker
                             if (!_physicallyHoldingD)
                             {
                                 _physicallyHoldingD = true;
-
-                                // If A is already pressed, send simulated KeyUp for A
                                 if (_physicallyHoldingA)
                                 {
                                     keybd_event(VK_A, 0, KEYEVENTF_KEYUP, SNAP_TAG);
@@ -403,7 +597,6 @@ namespace BlueStacks4FPSTweaker
                         else if (isKeyUp)
                         {
                             _physicallyHoldingD = false;
-                            // If A is still physically held down, re-press A
                             if (_physicallyHoldingA)
                             {
                                 keybd_event(VK_A, 0, 0, SNAP_TAG);
