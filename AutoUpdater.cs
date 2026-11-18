@@ -19,7 +19,7 @@ namespace BlueStacks4FPSTweaker
 
     public static class AutoUpdater
     {
-        public const string CURRENT_VERSION = "2.1.0";
+        public const string CURRENT_VERSION = "0.2.0";
         public const string GITHUB_REPO = "susaracreations/Bloomex";
         private const string API_URL = "https://api.github.com/repos/susaracreations/Bloomex/releases/latest";
 
