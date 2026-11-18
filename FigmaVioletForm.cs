@@ -1880,7 +1880,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Version 0.2.0 • Created by Susara Viduneth", fSub, sb, 202, 72);
+                        e.Graphics.DrawString("Version " + AutoUpdater.CURRENT_VERSION + " • Created by Susara Viduneth", fSub, sb, 202, 72);
                     }
                 }
             }
@@ -1894,7 +1894,7 @@ namespace BlueStacks4FPSTweaker
                 {
                     using (SolidBrush sb = new SolidBrush(Color.FromArgb(180, 150, 240)))
                     {
-                        e.Graphics.DrawString("Version 0.2.0 • Created by Susara Viduneth", fSub, sb, 145, 82);
+                        e.Graphics.DrawString("Version " + AutoUpdater.CURRENT_VERSION + " • Created by Susara Viduneth", fSub, sb, 145, 82);
                     }
                 }
             }
