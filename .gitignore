@@ -1,7 +1,8 @@
 *.log
 rendered_*.png
-render_*.ps1
-update_shortcut.ps1
+*.ps1
+scratch/
+BoosterX.exe
 .vs/
 bin/
 obj/
